@@ -15,9 +15,9 @@ Depending on how many anime/manga you have completed, it could easily take more 
 </div>
 
 ## Installation
-You can find the latest release on the right. Or click on [this](https://github.com/Joeytheduck1/AniManga-Ranker/releases/latest). and download AniMangaRanker_(version)_.exe
+You can find the latest release on the right. Or click on [this](https://github.com/Joeytheduck1/AniManga-Ranker/releases/latest), which leads to a page with the latest release.
 
-Alternatively if you know what you are doing, you can clone the repository and install the necessary dependencies by running `pip install -r requirements.txt`
+Alternatively, if you know what you are doing, you can clone the repository and install the necessary dependencies by running `pip install -r requirements.txt`
 
 
 ## How it works
