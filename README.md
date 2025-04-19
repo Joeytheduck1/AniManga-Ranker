@@ -3,13 +3,15 @@
 
 AniManga Ranker, coded in Python, helps users sort and order their completed anime/manga list from best to worst by using a modified binary search algorithm. 
 
+### [Changelog](https://github.com/Joeytheduck1/AniManga-Ranker/wiki/Changelog)
 ## DISCLAIMER
 Depending on how many anime/manga you have completed, it could easily take more than an hour or two. For reference, with 247 anime completed and assuming every choice takes 5 seconds, it will take roughly two hours to complete the program. __This is not for the faint of heart.__
 
 <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-  <img src="https://i.ibb.co/Q3ngM5X8/Screenshot-2025-04-17-195741.png" alt="AniManga Ranker Screenshot 2" width="800">
-  <img src="https://i.ibb.co/HT9Wny3y/Screenshot-2025-04-17-195803.png" alt="AniManga Ranker Screenshot 3" width="400">
-  <img src="https://i.ibb.co/20x8Nn5n/Screenshot-2025-04-17-195853.png" alt="AniManga Ranker Screenshot 4" width="400">
+  <img src="https://i.ibb.co/RpNGgt5L/image.png" alt="AniManga Ranker Screenshot 1" width="800">
+  <img src="https://i.ibb.co/HT9Wny3y/Screenshot-2025-04-17-195803.png" alt="AniManga Ranker Screenshot 2" width="400">
+  <img src="https://i.ibb.co/20x8Nn5n/Screenshot-2025-04-17-195853.png" alt="AniManga Ranker Screenshot 3" width="400">
+  <img src="https://i.ibb.co/Z17CvMtr/Screenshot-2025-04-19-170613.png" alt="AniManga Ranker Screenshot 4" width="800">
 </div>
 
 ## Installation
