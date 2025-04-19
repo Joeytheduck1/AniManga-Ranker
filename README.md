@@ -22,12 +22,13 @@ Alternatively if you know what you are doing, you can clone the repository and i
 
 ## How it works
 __Note: Profile must be public for the program to work.__
-1. Input your AniList username (No log in required)
-2. Click either "Fetch Anime List" or "Fetch Manga List"
-3. It gives you two choices of anime/manga
-4. You pick which one is better (Don't worry if you're not sure, you can edit the list at any time by using the "Edit Sorted List" button.
-5. Repeat steps 3-4 until all necessary comparisons are made to create the final list
-6. The final result is printed in a pop-up window where every entry sorted is placed on separate lines
+1. Input your AniList username (No login required)
+2. Select what lists you want the program to pull from and whether or not you want to include images
+3. Click either "Fetch Anime List" or "Fetch Manga List"
+4. It gives you two choices of anime/manga
+5. You pick which one is better (Don't worry if you're not sure, you can edit the list at any time by using the "Edit Sorted List" button.
+6. Repeat steps 4-5 until all necessary comparisons are made to create the final list
+7. The final result is printed in a pop-up window where every entry sorted is placed on separate lines
 
 ### A more detailed explanation of the sorting algorithm:
 The AniList Api is used to get information about the user's completed anime/manga list. The list is stored in order of score, and media with the same score are shuffled with other media with the same score. The program starts from the highest-rated media and picks two pieces of media for the user to compare. After the user picks one of the two, they are put into a sorted list. The next entry is then compared to the midpoint of the sorted list. The user now compares the two anime presented, and if the new entry beats the midpoint, then it uses the midpoint as the new lower index and finds the new midpoint between the highest show on the sorted list and the new lower index. The same vice versa, where the mid point becomes the high index, and the new midpoint is calculated. This is repeated until the entry can be placed precisely where it belongs. The process repeats until there are no more unsorted anime.
