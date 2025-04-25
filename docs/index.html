@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <title>AniManga Ranker – PyScript Edition</title>
-    <!-- Using a specific version is recommended; here we use the latest core files -->
-    <link rel="stylesheet" href="https://pyscript.net/latest/core.css" />
-    <script defer type="module" src="https://pyscript.net/latest/core.js"></script>
+    <!-- Use a specific version instead of "latest" -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2023.09.1/core.css" />
+    <script defer type="module" src="https://pyscript.net/releases/2023.09.1/core.js"></script>
     <style>
       /* General layout styling */
       body {
@@ -186,7 +186,7 @@ class AniMangaRanker:
 
     # ---------- AniList API Functions ----------
     def build_query(self, media_type, status):
-        # Build query by concatenating strings (to avoid f-string issues in PyScript)
+        # Build query by concatenating strings (to avoid f-string issues)
         query = (
             "query ($name: String) { "
             "MediaListCollection(userName: $name, type: " + media_type + ", status: " + status + ") { "
@@ -287,8 +287,7 @@ class AniMangaRanker:
             self.initial_estimated_midpoint = candidate
         else:
             self.initial_estimated_midpoint = (self.low_index + self.high_index) // 2
-        self.comparisons_remaining = (math.ceil(math.log2(self.high_index - self.low_index + 1))
-                                      if (self.high_index - self.low_index + 1) > 0 else 0)
+        self.comparisons_remaining = math.ceil(math.log2(self.high_index - self.low_index + 1)) if (self.high_index - self.low_index + 1) > 0 else 0
         self.unsorted_comparisons_remaining = self.estimated_unsorted_comparisons_remaining()
         self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
 
@@ -554,6 +553,9 @@ def fetch_manga(e):
     import asyncio
     asyncio.create_task(ranker.start_fetch("MANGA"))
 
+def close_debug(e):
+    document.getElementById("debugModal").style.display = "none"
+
 document.getElementById("fetchAnimeButton").addEventListener("click", fetch_anime)
 document.getElementById("fetchMangaButton").addEventListener("click", fetch_manga)
 document.getElementById("compButton1").addEventListener("click", ranker.handle_new_win)
@@ -564,7 +566,7 @@ document.getElementById("resetButton").addEventListener("click", lambda e: ranke
 document.getElementById("debugButton").addEventListener("click", lambda e: ranker.show_debug_info())
 document.getElementById("saveEditButton").addEventListener("click", lambda e: ranker.save_edited_list())
 document.getElementById("closeEditButton").addEventListener("click", lambda e: ranker.close_edit_modal())
-document.getElementById("closeDebugButton").addEventListener("click", lambda e: document.getElementById("debugModal").style.display = "none")
+document.getElementById("closeDebugButton").addEventListener("click", close_debug)
     </py-script>
   </body>
 </html>
