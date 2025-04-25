@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>AniManga Ranker – PyScript Edition</title>
+    <!-- Use the new PyScript core files -->
     <link rel="stylesheet" href="https://pyscript.net/latest/core.css" />
     <script defer src="https://pyscript.net/latest/core.js"></script>
     <style>
@@ -52,11 +53,6 @@
         cursor: pointer;
       }
     </style>
-    <!-- Specify the required packages for PyScript -->
-    <py-env>
-      - requests
-      - pillow
-    </py-env>
   </head>
   <body>
     <div class="container">
@@ -102,23 +98,20 @@
       </div>
       <div id="comparison-panel">
         <button class="comparison-button" id="compButton1">NEW wins</button>
-        <button class="comparison-button" id="compButton2">
-          Candidate wins</button
-        >
+        <button class="comparison-button" id="compButton2">Candidate wins</button>
       </div>
     </div>
 
     <py-script>
-import requests, random, math, base64
-from io import BytesIO
-from PIL import Image
+import math, random, json
+from pyodide.ffi import to_js
 from js import document, console
 
 ANILIST_API_URL = "https://graphql.anilist.co"
 
 class AniMangaRanker:
     def __init__(self):
-        # Core state for the tournament ranking
+        # Core state for ranking
         self.unsorted_list = []   # List of media entries: (id, title, cover, score, season, seasonYear)
         self.sorted_list = []
         self.all_items = []
@@ -130,8 +123,6 @@ class AniMangaRanker:
         self.initial_low_bound = None
         self.comparisons_remaining = 0
         self.unsorted_comparisons_remaining = 0
-        self.image_cache = {}
-        self.resized_image_cache = {}
 
     # ------------------ DOM Utility Functions ------------------
     def set_text(self, element_id, text):
@@ -145,7 +136,6 @@ class AniMangaRanker:
 
     # ------------------ AniList API Functions ------------------
     def build_query(self, media_type, status):
-        # Request id, title, cover, score, season, seasonYear
         query = f'''query ($name: String) {{
             MediaListCollection(userName: $name, type: {media_type}, status: {status}) {{
                 lists {{
@@ -181,7 +171,7 @@ class AniMangaRanker:
             statuses.append("DROPPED")
         return statuses
 
-    def fetch_user_list(self, username, media_type):
+    async def fetch_user_list(self, username, media_type):
         statuses = self.get_selected_statuses(media_type)
         if not statuses:
             self.set_text("progressLabel", "No list statuses selected!")
@@ -190,14 +180,19 @@ class AniMangaRanker:
         seen = set()
         for status in statuses:
             query = self.build_query(media_type, status)
+            variables = {"name": username}
+            payload = {"query": query, "variables": variables}
+            init = {
+                "method": "POST",
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps(payload)
+            }
             try:
-                res = requests.post(
-                    ANILIST_API_URL,
-                    json={"query": query, "variables": {"name": username}},
-                    timeout=10,
-                )
-                res.raise_for_status()
-                data = res.json()
+                response = await js.fetch(ANILIST_API_URL, to_js(init))
+                if not response.ok:
+                    console.log("Error fetching data: " + response.statusText)
+                    continue
+                data = await response.json()
             except Exception as e:
                 console.log(f"Error fetching {media_type} list for {username} with status {status}: {e}")
                 continue
@@ -218,9 +213,7 @@ class AniMangaRanker:
                         seasonYear = media.get("seasonYear")
                         score = entry.get("score", 0)
                         results.append((mid, title, cover, score, season, seasonYear))
-        # First sort by score descending
         results.sort(key=lambda x: x[3], reverse=True)
-        # Then randomly shuffle items with the same score
         new_results = []
         current_score = None
         group = []
@@ -266,7 +259,6 @@ class AniMangaRanker:
         self.set_text("unsortedComparisonsLabel", f"Estimated Total Comparisons Left: {self.unsorted_comparisons_remaining}")
 
     def calculate_mid(self):
-        # Uses the offset until the search must be expanded
         if self.initial_low_bound is not None and self.initial_low_bound > 0 and self.low_index == 0:
             return (self.low_index + self.high_index) // 2
         else:
@@ -283,46 +275,6 @@ class AniMangaRanker:
         progress_percentage = (inserted / total * 100) if total > 0 else 0
         self.set_text("progressLabel", f"Inserted {inserted} of {total}. Remaining: {remaining_items} items ({progress_percentage:.1f}% complete).")
 
-    def pil_image_to_data_url(self, img):
-        buffered = BytesIO()
-        img.save(buffered, format="PNG")
-        img_str = base64.b64encode(buffered.getvalue()).decode()
-        return f"data:image/png;base64,{img_str}"
-
-    def load_image(self, data):
-        mid = data[0]
-        if mid in self.image_cache:
-            return self.image_cache[mid]
-        try:
-            r = requests.get(data[2], timeout=10)
-            r.raise_for_status()
-            img = Image.open(BytesIO(r.content)).convert("RGB")
-        except Exception as e:
-            console.log(f"Error loading image for {data[1]}: {e}")
-            img = Image.new("RGB", (200,300), color="gray")
-        self.image_cache[mid] = img
-        return img
-
-    def resize_image(self, img, max_w, max_h):
-        ow, oh = img.size
-        aspect = ow / oh
-        if max_w / aspect <= max_h:
-            new_w = min(max_w, ow)
-            new_h = int(new_w / aspect)
-        else:
-            new_h = min(max_h, oh)
-            new_w = int(new_h * aspect)
-        return img.resize((new_w, new_h))
-
-    def get_resized_image(self, data, max_w, max_h):
-        key = (data[0], max_w, max_h)
-        if key in self.resized_image_cache:
-            return self.resized_image_cache[key]
-        img = self.load_image(data)
-        resized = self.resize_image(img, max_w, max_h)
-        self.resized_image_cache[key] = resized
-        return resized
-
     def update_comparison_gui(self):
         if self.current_index >= len(self.unsorted_list):
             return
@@ -336,10 +288,8 @@ class AniMangaRanker:
         btn2 = document.getElementById("compButton2")
         include_images = self.is_checked("includeImagesCheckbox")
         if include_images:
-            new_img = self.get_resized_image(new_item, 200, 300)
-            cand_img = self.get_resized_image(candidate, 200, 300)
-            btn1.innerHTML = f'<img src="{self.pil_image_to_data_url(new_img)}" style="max-width:100%;"><br>{new_item[1]}'
-            btn2.innerHTML = f'<img src="{self.pil_image_to_data_url(cand_img)}" style="max-width:100%;"><br>{candidate[1]}'
+            btn1.innerHTML = f'<img src="{new_item[2]}" style="max-width:200px;height:auto;"><br>{new_item[1]}'
+            btn2.innerHTML = f'<img src="{candidate[2]}" style="max-width:200px;height:auto;"><br>{candidate[1]}'
         else:
             btn1.innerText = new_item[1]
             btn2.innerText = candidate[1]
@@ -395,13 +345,13 @@ class AniMangaRanker:
         self.set_text("instructionLabel", result_text)
         self.set_text("progressLabel", "Ranking complete!")
 
-    def start_fetch(self, media_type):
+    async def start_fetch(self, media_type):
         username = self.get_value("usernameInput").strip()
         if not username:
             self.set_text("progressLabel", "Please enter a username!")
             return
         self.set_text("progressLabel", "Fetching data, please wait...")
-        items = self.fetch_user_list(username, media_type)
+        items = await self.fetch_user_list(username, media_type)
         if not items:
             self.set_text("progressLabel", f"No completed {media_type.lower()} found for {username}")
             return
@@ -416,9 +366,17 @@ class AniMangaRanker:
 # Create a global instance
 ranker = AniMangaRanker()
 
-# Bind the fetch and comparison buttons
-document.getElementById("fetchAnimeButton").addEventListener("click", lambda e: ranker.start_fetch("ANIME"))
-document.getElementById("fetchMangaButton").addEventListener("click", lambda e: ranker.start_fetch("MANGA"))
+# Bind fetch buttons via async event handlers
+def on_fetch_anime_clicked(e):
+    import asyncio
+    asyncio.create_task(ranker.start_fetch("ANIME"))
+
+def on_fetch_manga_clicked(e):
+    import asyncio
+    asyncio.create_task(ranker.start_fetch("MANGA"))
+
+document.getElementById("fetchAnimeButton").addEventListener("click", on_fetch_anime_clicked)
+document.getElementById("fetchMangaButton").addEventListener("click", on_fetch_manga_clicked)
 document.getElementById("compButton1").addEventListener("click", ranker.handle_new_win)
 document.getElementById("compButton2").addEventListener("click", ranker.handle_candidate_win)
     </py-script>
