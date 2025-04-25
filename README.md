@@ -3,7 +3,7 @@
 
 AniManga Ranker, coded in Python, helps users sort and order their completed anime/manga list from best to worst by using a modified binary search algorithm. 
 
-### [Changelog](https://github.com/Joeytheduck1/AniManga-Ranker/wiki/Changelog)
+### [Changelog](https://github.com/Joeytheduck1/AniManga-Ranker/wiki/Changelog) [Planned Features](https://github.com/Joeytheduck1/AniManga-Ranker/wiki/Planned-Features)
 ## DISCLAIMER
 Depending on how many anime/manga you have completed, it could easily take more than an hour or two. For reference, with 247 anime completed and assuming every choice takes 5 seconds, it will take roughly two hours to complete the program. __This is not for the faint of heart.__
 
