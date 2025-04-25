@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AniManga Ranker – PyScript Edition</title>
+  <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+  <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+  <style>
+    /* Basic styling – similar in spirit to your Tkinter colors */
+    body {
+      background-color: #2f2f2f;
+      color: #f0f0f0;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #3f3f3f;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+    input, button, select, label {
+      font-size: 16px;
+      margin: 5px;
+      padding: 5px;
+    }
+    button {
+      cursor: pointer;
+    }
+    #comparison, #results {
+      margin-top: 20px;
+    }
+    #instruction {
+      white-space: pre-wrap;
+      margin-bottom: 20px;
+      font-size: 18px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>AniManga Ranker</h1>
+    
+    <!-- Setup Section -->
+    <div id="setup">
+      <label for="username">AniList Username:</label>
+      <input type="text" id="username" placeholder="Enter username" />
+      <br>
+      <label><input type="checkbox" id="completed" checked /> Completed</label>
+      <label><input type="checkbox" id="watching" /> Watching/Reading</label>
+      <label><input type="checkbox" id="paused" /> Paused</label>
+      <label><input type="checkbox" id="dropped" /> Dropped</label>
+      <label><input type="checkbox" id="loadImages" /> Include Images</label>
+      <br>
+      <button id="fetchAnime">Fetch Anime List</button>
+      <button id="fetchManga">Fetch Manga List</button>
+    </div>
+    
+    <!-- Progress message -->
+    <div id="progress"></div>
+    
+    <!-- Comparison Section (initially hidden) -->
+    <div id="comparison" style="display: none;">
+      <div id="instruction">Comparison instructions will appear here.</div>
+      <button id="newWins">NEW wins</button>
+      <button id="candidateWins">Candidate wins</button>
+    </div>
+    
+    <!-- Final results Section (initially hidden) -->
+    <div id="results" style="display: none;">
+      <h2>Final Ranking (Best to Worst):</h2>
+      <ol id="resultsList"></ol>
+    </div>
+  </div>
+  
+  <!-- PyScript code block -->
+  <py-script>
+import asyncio
+import json
+import random
+from js import document, console, fetch
+
+# --- Global Variables (adapted state) ---
+ANILIST_API_URL = "https://graphql.anilist.co"
+unsorted_list = []  # List of media entries (tuples)
+sorted_list = []
+current_index = 0    # Points to the next item to be sorted
+offset = 15          # (Not used in this simplified version)
+
+# --- DOM Helper Function ---
+def get_el(id):
+    return document.getElementById(id)
+
+def update_progress(text):
+    get_el("progress").innerHTML = text
+
+def show_section(id, show=True):
+    get_el(id).style.display = "block" if show else "none"
+
+# --- Utility to Truncate Long Text ---
+def truncate_text(text, limit=50):
+    return text if len(text) <= limit else text[:limit] + "..."
+
+# --- Fetch AniList Data ---
+async def fetch_user_list(username, media_type):
+    # Build statuses from checkbox values.
+    statuses = []
+    if get_el("completed").checked:
+        statuses.append("COMPLETED")
+    if get_el("watching").checked:
+        statuses.append("CURRENT" if media_type == "ANIME" else "READING")
+    if get_el("paused").checked:
+        statuses.append("PAUSED")
+    if get_el("dropped").checked:
+        statuses.append("DROPPED")
+    if not statuses:
+        update_progress("No list statuses selected!")
+        return []
+    
+    results = []
+    for status in statuses:
+        query = f'''
+        query ($name: String) {{
+          MediaListCollection(userName: $name, type: {media_type}, status: {status}) {{
+            lists {{
+              entries {{
+                score
+                media {{
+                  id
+                  title {{ english romaji }}
+                  coverImage {{ large }}
+                  season
+                  seasonYear
+                }}
+              }}
+            }}
+          }}
+        }}
+        '''
+        payload = {"query": query, "variables": {"name": username}}
+        response = await fetch(ANILIST_API_URL, {
+            "method": "POST",
+            "headers": {"Content-Type": "application/json", "Accept": "application/json"},
+            "body": json.dumps(payload)
+        })
+        data = await response.json()
+        lists = data.get("data", {}).get("MediaListCollection", {}).get("lists", [])
+        seen = set()
+        for lst in lists:
+            for entry in lst.get("entries", []):
+                media = entry.get("media")
+                if media and media.get("id") not in seen:
+                    seen.add(media.get("id"))
+                    title = (media.get("title", {}).get("english") or
+                             media.get("title", {}).get("romaji") or "Unknown")
+                    cover = media.get("coverImage", {}).get("large", "")
+                    season = media.get("season")
+                    seasonYear = media.get("seasonYear")
+                    score = entry.get("score", 0)
+                    results.append((media.get("id"), title, cover, score, season, seasonYear))
+    # Sort by score descending
+    results.sort(key=lambda x: x[3], reverse=True)
+    # Randomize ties:
+    final_results = []
+    last_score = None
+    group = []
+    for item in results:
+        if last_score is None or item[3] == last_score:
+            group.append(item)
+        else:
+            random.shuffle(group)
+            final_results.extend(group)
+            group = [item]
+        last_score = item[3]
+    if group:
+        random.shuffle(group)
+        final_results.extend(group)
+    return final_results
+
+# --- Initialize Tournament ---
+def init_tournament(items):
+    global unsorted_list, sorted_list, current_index
+    unsorted_list = items
+    if not items:
+        update_progress("No items found!")
+        return
+    sorted_list = [items[0]]
+    current_index = 1
+    update_progress(f"Fetched {len(items)} items. Beginning tournament...")
+    show_section("setup", False)
+    show_section("comparison", True)
+    update_comparison_gui()
+
+# --- Update the Comparison UI ---
+def update_comparison_gui():
+    if current_index >= len(unsorted_list):
+        show_final_results()
+        return
+    # For simplicity: compare the next unsorted item with the last item in sorted_list
+    new_item = unsorted_list[current_index]
+    candidate = sorted_list[-1] if sorted_list else ("N/A",)
+    instruction_text = f"Compare:\n\n{new_item[1]}\n\nvs.\n\n{candidate[1] if len(candidate)>1 else 'N/A'}"
+    get_el("instruction").innerText = instruction_text
+
+# --- Handle Comparison Outcome ---
+def handle_comparison(new_item_wins):
+    global current_index, unsorted_list, sorted_list
+    if current_index >= len(unsorted_list):
+        show_final_results()
+        return
+    new_item = unsorted_list[current_index]
+    # In this simplified logic, if the new item wins the comparison, insert it at the start.
+    # Otherwise, append it at the end.
+    if new_item_wins:
+        sorted_list.insert(0, new_item)
+    else:
+        sorted_list.append(new_item)
+    current_index += 1
+    update_progress(f"Processed {current_index} of {len(unsorted_list)} items.")
+    update_comparison_gui()
+
+# --- Show Final Tournament Results ---
+def show_final_results():
+    show_section("comparison", False)
+    show_section("results", True)
+    results_list = get_el("resultsList")
+    results_list.innerHTML = ""
+    for idx, item in enumerate(sorted_list):
+        li = document.createElement("li")
+        li.innerText = f"{idx+1}. {item[1]}"
+        results_list.appendChild(li)
+    update_progress("Tournament complete!")
+
+# --- Button Handlers ---
+async def fetch_handler(media_type):
+    username = get_el("username").value.strip()
+    if not username:
+        update_progress("Please enter a username!")
+        return
+    update_progress("Fetching data; please wait...")
+    items = await fetch_user_list(username, media_type)
+    if not items:
+        update_progress(f"No entries found for {media_type}.")
+        return
+    init_tournament(items)
+
+def on_fetch_anime(event):
+    asyncio.ensure_future(fetch_handler("ANIME"))
+
+def on_fetch_manga(event):
+    asyncio.ensure_future(fetch_handler("MANGA"))
+
+def on_new_wins(event):
+    handle_comparison(True)
+
+def on_candidate_wins(event):
+    handle_comparison(False)
+
+# --- Bind DOM Events ---
+get_el("fetchAnime").addEventListener("click", on_fetch_anime)
+get_el("fetchManga").addEventListener("click", on_fetch_manga)
+get_el("newWins").addEventListener("click", on_new_wins)
+get_el("candidateWins").addEventListener("click", on_candidate_wins)
+  </py-script>
+</body>
+</html>
