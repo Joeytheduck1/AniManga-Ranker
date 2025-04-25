@@ -3,10 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <title>AniManga Ranker – PyScript Edition</title>
-    <!-- Use the new PyScript core files -->
+    <!-- Use the updated PyScript core files -->
     <link rel="stylesheet" href="https://pyscript.net/latest/core.css" />
     <script defer src="https://pyscript.net/latest/core.js"></script>
     <style>
+      /* General layout styling */
       body {
         background-color: #2e2e2e;
         color: #f8f8f2;
@@ -23,25 +24,14 @@
         text-align: center;
         margin-bottom: 20px;
       }
-      label {
-        font-size: 16px;
-        margin-right: 10px;
-      }
-      input,
-      button,
-      select {
-        font-size: 16px;
-        padding: 5px;
-        margin: 5px;
-      }
-      #control-panel {
+      .control-panel {
         text-align: center;
         margin-bottom: 20px;
       }
-      #control-panel div {
+      .control-panel div {
         margin: 10px 0;
       }
-      #comparison-panel {
+      .comparison-panel {
         display: flex;
         justify-content: space-around;
         margin-top: 20px;
@@ -52,79 +42,122 @@
         font-size: 18px;
         cursor: pointer;
       }
+      /* Filter dropdowns and extra buttons */
+      #filter-panel label, #filter-panel select {
+        font-size: 16px;
+        margin-right: 10px;
+      }
+      #editFinishPanel button {
+        font-size: 16px;
+        margin: 5px;
+        padding: 5px 10px;
+      }
+      /* Modal styling for editing sorted list */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.4);
+      }
+      .modal-content {
+        background-color: #333;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 600px;
+        color: #f8f8f2;
+      }
+      .modal-content button {
+        margin: 5px;
+        font-size: 16px;
+      }
     </style>
   </head>
   <body>
     <div class="container">
       <h1>AniManga Ranker – PyScript Edition</h1>
-      <div id="control-panel">
-        <!-- Username and Options -->
+      <div class="control-panel">
+        <!-- Username and status checkboxes -->
         <div>
           <label for="usernameInput">Enter AniList Username:</label>
           <input type="text" id="usernameInput" placeholder="Username" />
         </div>
         <div>
-          <label>
-            <input type="checkbox" id="completedCheckbox" checked />
-            Completed
-          </label>
-          <label>
-            <input type="checkbox" id="watchingCheckbox" />
-            Watching/Reading
-          </label>
-          <label>
-            <input type="checkbox" id="pausedCheckbox" />
-            Paused
-          </label>
-          <label>
-            <input type="checkbox" id="droppedCheckbox" />
-            Dropped
-          </label>
-          <label>
-            <input type="checkbox" id="includeImagesCheckbox" />
-            Include Images
-          </label>
+          <label><input type="checkbox" id="completedCheckbox" checked> Completed</label>
+          <label><input type="checkbox" id="watchingCheckbox"> Watching/Reading</label>
+          <label><input type="checkbox" id="pausedCheckbox"> Paused</label>
+          <label><input type="checkbox" id="droppedCheckbox"> Dropped</label>
+          <label><input type="checkbox" id="includeImagesCheckbox"> Include Images</label>
         </div>
+        <!-- Fetch buttons -->
         <div>
           <button id="fetchAnimeButton">Fetch Anime List</button>
           <button id="fetchMangaButton">Fetch Manga List</button>
         </div>
-        <!-- Progress/Instruction Labels -->
+        <!-- Filter dropdowns -->
+        <div id="filter-panel">
+          <label for="seasonDropdown">Season:</label>
+          <select id="seasonDropdown" onchange="pyodide.runPython('ranker.filter_changed()');"></select>
+          <label for="yearDropdown">Year:</label>
+          <select id="yearDropdown" onchange="pyodide.runPython('ranker.filter_changed()');"></select>
+        </div>
+        <!-- Edit and finish buttons -->
+        <div id="editFinishPanel">
+          <button id="editSortedButton">Edit Sorted List</button>
+          <button id="finishEarlyButton">Finish List Early</button>
+        </div>
+        <!-- Progress and instructions -->
         <div id="progressLabel"></div>
         <div id="instructionLabel">Comparison instructions will appear here</div>
-        <div id="unsortedComparisonsLabel">
-          Estimated Total Comparisons Left: 0
-        </div>
+        <div id="unsortedComparisonsLabel">Estimated Total Comparisons Left: 0</div>
       </div>
-      <div id="comparison-panel">
+      <!-- Comparison buttons -->
+      <div class="comparison-panel">
         <button class="comparison-button" id="compButton1">NEW wins</button>
         <button class="comparison-button" id="compButton2">Candidate wins</button>
       </div>
     </div>
 
+    <!-- Edit Sorted List Modal -->
+    <div id="editModal" class="modal">
+      <div class="modal-content">
+        <h2>Edit Sorted List</h2>
+        <div id="editModalContent"></div>
+        <div style="text-align: center;">
+          <button id="saveEditButton">Save</button>
+          <button id="closeEditButton">Close</button>
+        </div>
+      </div>
+    </div>
+
     <py-script>
 import math, random, json
-from pyodide.ffi import to_js
 from js import document, console
 
 ANILIST_API_URL = "https://graphql.anilist.co"
 
 class AniMangaRanker:
     def __init__(self):
-        # Core state for ranking
-        self.unsorted_list = []   # List of media entries: (id, title, cover, score, season, seasonYear)
-        self.sorted_list = []
-        self.all_items = []
+        # Core state for tournament ranking
+        self.all_items = []       # All items (fetched from AniList)
+        self.unsorted_list = []   # Items to be inserted into ranking
+        self.sorted_list = []     # Ranked list
         self.current_index = 0
         self.low_index = 0
         self.high_index = 0
-        self.offset = 15  # How far to search initially
+        self.offset = 15
         self.initial_estimated_midpoint = None
         self.initial_low_bound = None
         self.comparisons_remaining = 0
         self.unsorted_comparisons_remaining = 0
 
-    # ------------------ DOM Utility Functions ------------------
+    # ---------- DOM Utility Methods ----------
     def set_text(self, element_id, text):
         document.getElementById(element_id).innerText = text
 
@@ -134,29 +167,29 @@ class AniMangaRanker:
     def is_checked(self, element_id):
         return document.getElementById(element_id).checked
 
-    # ------------------ AniList API Functions ------------------
+    # ---------- AniList API Functions ----------
     def build_query(self, media_type, status):
         query = f'''query ($name: String) {{
-            MediaListCollection(userName: $name, type: {media_type}, status: {status}) {{
-                lists {{
-                    entries {{
-                        score
-                        media {{
-                            id
-                            title {{
-                                english
-                                romaji
-                            }}
-                            coverImage {{
-                                large
-                            }}
-                            season
-                            seasonYear
-                        }}
-                    }}
-                }}
-            }}
-        }}'''
+  MediaListCollection(userName: $name, type: {media_type}, status: {status}) {{
+    lists {{
+      entries {{
+        score
+        media {{
+          id
+          title {{
+            english
+            romaji
+          }}
+          coverImage {{
+            large
+          }}
+          season
+          seasonYear
+        }}
+      }}
+    }}
+  }}
+}}'''
         return query
 
     def get_selected_statuses(self, media_type):
@@ -188,7 +221,7 @@ class AniMangaRanker:
                 "body": json.dumps(payload)
             }
             try:
-                response = await js.fetch(ANILIST_API_URL, to_js(init))
+                response = await js.fetch(ANILIST_API_URL, init)
                 if not response.ok:
                     console.log("Error fetching data: " + response.statusText)
                     continue
@@ -205,9 +238,8 @@ class AniMangaRanker:
                         if mid in seen:
                             continue
                         seen.add(mid)
-                        title = (media.get("title", {}).get("english")
-                                 or media.get("title", {}).get("romaji")
-                                 or "Unknown")
+                        title = (media.get("title", {}).get("english") or 
+                                 media.get("title", {}).get("romaji") or "Unknown")
                         cover = media.get("coverImage", {}).get("large") or ""
                         season = media.get("season")
                         seasonYear = media.get("seasonYear")
@@ -232,7 +264,7 @@ class AniMangaRanker:
             new_results.extend(group)
         return new_results
 
-    # ------------------ Tournament/Comparison Functions ------------------
+    # ---------- Tournament Functions ----------
     def estimated_unsorted_comparisons_remaining(self):
         sorted_count = len(self.sorted_list)
         remaining_count = len(self.unsorted_list) - self.current_index
@@ -253,8 +285,7 @@ class AniMangaRanker:
             self.initial_estimated_midpoint = candidate
         else:
             self.initial_estimated_midpoint = (self.low_index + self.high_index) // 2
-        self.comparisons_remaining = (math.ceil(math.log2(self.high_index - self.low_index + 1))
-                                      if (self.high_index - self.low_index + 1) > 0 else 0)
+        self.comparisons_remaining = math.ceil(math.log2(self.high_index - self.low_index + 1)) if (self.high_index - self.low_index + 1) > 0 else 0
         self.unsorted_comparisons_remaining = self.estimated_unsorted_comparisons_remaining()
         self.set_text("unsortedComparisonsLabel", f"Estimated Total Comparisons Left: {self.unsorted_comparisons_remaining}")
 
@@ -339,10 +370,10 @@ class AniMangaRanker:
         self.handle_comparison(False)
 
     def show_final_results(self):
-        result_text = "Final Ranking (Best to Worst):\n\n"
+        final_text = "Final Ranking (Best to Worst):\n\n"
         for i, comp in enumerate(self.sorted_list):
-            result_text += f"{i+1}. {comp[1]}\n"
-        self.set_text("instructionLabel", result_text)
+            final_text += f"{i+1}. {comp[1]}\n"
+        self.set_text("instructionLabel", final_text)
         self.set_text("progressLabel", "Ranking complete!")
 
     async def start_fetch(self, media_type):
@@ -356,6 +387,7 @@ class AniMangaRanker:
             self.set_text("progressLabel", f"No completed {media_type.lower()} found for {username}")
             return
         self.all_items = items
+        self.update_dropdowns()
         self.unsorted_list = items
         self.sorted_list = [items[0]]
         self.current_index = 1
@@ -363,22 +395,141 @@ class AniMangaRanker:
         self.update_progress()
         self.update_comparison_gui()
 
+    # ---------- Filtering Functions ----------
+    def update_dropdowns(self):
+        # Update season dropdown based on all_items
+        seasons = {"Winter": 0, "Spring": 0, "Summer": 0, "Fall": 0}
+        for item in self.all_items:
+            if item[4]:
+                s = item[4].capitalize()
+                if s in seasons:
+                    seasons[s] += 1
+        season_dropdown = document.getElementById("seasonDropdown")
+        season_dropdown.innerHTML = ""
+        opt = document.createElement("option")
+        opt.value = "All"
+        opt.text = "All"
+        season_dropdown.appendChild(opt)
+        for s, count in seasons.items():
+            if count > 0:
+                opt = document.createElement("option")
+                opt.value = s
+                opt.text = f"{s} ({count})"
+                season_dropdown.appendChild(opt)
+        # Update year dropdown
+        year_counts = {}
+        for item in self.all_items:
+            if item[5]:
+                year_counts[str(item[5])] = year_counts.get(str(item[5]), 0) + 1
+        year_dropdown = document.getElementById("yearDropdown")
+        year_dropdown.innerHTML = ""
+        opt = document.createElement("option")
+        opt.value = "All"
+        opt.text = "All"
+        year_dropdown.appendChild(opt)
+        for year in sorted(year_counts.keys()):
+            opt = document.createElement("option")
+            opt.value = year
+            opt.text = f"{year} ({year_counts[year]})"
+            year_dropdown.appendChild(opt)
+
+    def filter_changed(self, event=None):
+        season = document.getElementById("seasonDropdown").value
+        year = document.getElementById("yearDropdown").value
+        filtered = []
+        for item in self.all_items:
+            if season != "All":
+                if not item[4] or item[4].lower() != season.lower():
+                    continue
+            if year != "All":
+                if not item[5] or str(item[5]) != year:
+                    continue
+            filtered.append(item)
+        if not filtered:
+            self.set_text("progressLabel", "No entries match the selected filters!")
+            return
+        self.unsorted_list = filtered
+        self.sorted_list = [filtered[0]]
+        self.current_index = 1
+        self.reset_binary_range()
+        self.update_progress()
+        self.update_comparison_gui()
+
+    # ---------- Edit Sorted List Functions ----------
+    def edit_sorted_list(self):
+        modal = document.getElementById("editModal")
+        modal.style.display = "block"
+        self.refresh_edit_modal()
+
+    def refresh_edit_modal(self):
+        content = document.getElementById("editModalContent")
+        content.innerHTML = ""
+        ol = document.createElement("ol")
+        for idx, item in enumerate(self.sorted_list):
+            li = document.createElement("li")
+            li.style.marginBottom = "8px"
+            li.innerText = item[1] + " "
+            # Up button
+            upBtn = document.createElement("button")
+            upBtn.innerText = "↑"
+            if idx == 0:
+                upBtn.disabled = True
+            else:
+                upBtn.onclick = lambda ev, i=idx: self.move_item_up(i)
+            li.appendChild(upBtn)
+            # Down button
+            downBtn = document.createElement("button")
+            downBtn.innerText = "↓"
+            if idx == len(self.sorted_list) - 1:
+                downBtn.disabled = True
+            else:
+                downBtn.onclick = lambda ev, i=idx: self.move_item_down(i)
+            li.appendChild(downBtn)
+            ol.appendChild(li)
+        content.appendChild(ol)
+
+    def move_item_up(self, index):
+        if index > 0:
+            self.sorted_list[index], self.sorted_list[index - 1] = self.sorted_list[index - 1], self.sorted_list[index]
+            self.refresh_edit_modal()
+
+    def move_item_down(self, index):
+        if index < len(self.sorted_list) - 1:
+            self.sorted_list[index], self.sorted_list[index + 1] = self.sorted_list[index + 1], self.sorted_list[index]
+            self.refresh_edit_modal()
+
+    def save_edited_list(self):
+        modal = document.getElementById("editModal")
+        modal.style.display = "none"
+        self.set_text("progressLabel", "Edited sorted list saved.")
+
+    def close_edit_modal(self):
+        modal = document.getElementById("editModal")
+        modal.style.display = "none"
+
+    def finish_early(self):
+        self.show_final_results()
+
 # Create a global instance
 ranker = AniMangaRanker()
 
-# Bind fetch buttons via async event handlers
-def on_fetch_anime_clicked(e):
+# ---------- Bind Event Listeners ----------
+def fetch_anime(e):
     import asyncio
     asyncio.create_task(ranker.start_fetch("ANIME"))
 
-def on_fetch_manga_clicked(e):
+def fetch_manga(e):
     import asyncio
     asyncio.create_task(ranker.start_fetch("MANGA"))
 
-document.getElementById("fetchAnimeButton").addEventListener("click", on_fetch_anime_clicked)
-document.getElementById("fetchMangaButton").addEventListener("click", on_fetch_manga_clicked)
+document.getElementById("fetchAnimeButton").addEventListener("click", fetch_anime)
+document.getElementById("fetchMangaButton").addEventListener("click", fetch_manga)
 document.getElementById("compButton1").addEventListener("click", ranker.handle_new_win)
 document.getElementById("compButton2").addEventListener("click", ranker.handle_candidate_win)
+document.getElementById("editSortedButton").addEventListener("click", lambda e: ranker.edit_sorted_list())
+document.getElementById("finishEarlyButton").addEventListener("click", lambda e: ranker.finish_early())
+document.getElementById("saveEditButton").addEventListener("click", lambda e: ranker.save_edited_list())
+document.getElementById("closeEditButton").addEventListener("click", lambda e: ranker.close_edit_modal())
     </py-script>
   </body>
 </html>
