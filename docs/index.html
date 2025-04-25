@@ -1,243 +1,426 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>AniManga Ranker – PyScript Edition</title>
-  <!-- Load PyScript's updated core CSS and JS from the official CDN -->
-  <link rel="stylesheet" href="https://pyscript.net/latest/core.css" />
-  <script defer src="https://pyscript.net/latest/core.js"></script>
-  <style>
-    /* Basic styling – similar in spirit to your Tkinter colors */
-    body {
-      background-color: #2f2f2f;
-      color: #f0f0f0;
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 800px;
-      margin: 20px auto;
-      padding: 20px;
-      background-color: #3f3f3f;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    }
-    input, button, label {
-      font-size: 16px;
-      margin: 5px;
-      padding: 5px;
-    }
-    button {
-      cursor: pointer;
-    }
-    #progress {
-      margin: 10px 0;
-    }
-    #comparison {
-      margin-top: 20px;
-    }
-    #instruction {
-      white-space: pre-wrap;
-      margin-bottom: 20px;
-      font-size: 18px;
-      text-align: center;
-    }
-    #results {
-      margin-top: 20px;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>AniManga Ranker</h1>
-    
-    <!-- Setup Section -->
-    <div id="setup">
-      <label for="username">AniList Username:</label>
-      <input type="text" id="username" placeholder="Enter username" />
-      <br>
-      <!-- Options as checkboxes -->
-      <label><input type="checkbox" id="completed" checked /> Completed</label>
-      <label><input type="checkbox" id="watching" /> Watching/Reading</label>
-      <label><input type="checkbox" id="paused" /> Paused</label>
-      <label><input type="checkbox" id="dropped" /> Dropped</label>
-      <br>
-      <button id="fetchAnime">Fetch Anime List</button>
-      <button id="fetchManga">Fetch Manga List</button>
+  <head>
+    <meta charset="UTF-8" />
+    <title>AniManga Ranker – PyScript Edition</title>
+    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+    <style>
+      body {
+        background-color: #2e2e2e;
+        color: #f8f8f2;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        width: 90%;
+        margin: auto;
+        padding: 20px;
+      }
+      h1 {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      label {
+        font-size: 16px;
+        margin-right: 10px;
+      }
+      input,
+      button,
+      select {
+        font-size: 16px;
+        padding: 5px;
+        margin: 5px;
+      }
+      #control-panel {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      #control-panel div {
+        margin: 10px 0;
+      }
+      #comparison-panel {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 20px;
+      }
+      .comparison-button {
+        width: 45%;
+        padding: 15px;
+        font-size: 18px;
+        cursor: pointer;
+      }
+    </style>
+    <!-- Specify the required packages for PyScript -->
+    <py-env>
+      - requests
+      - pillow
+    </py-env>
+  </head>
+  <body>
+    <div class="container">
+      <h1>AniManga Ranker – PyScript Edition</h1>
+      <div id="control-panel">
+        <!-- Username and Options -->
+        <div>
+          <label for="usernameInput">Enter AniList Username:</label>
+          <input type="text" id="usernameInput" placeholder="Username" />
+        </div>
+        <div>
+          <label>
+            <input type="checkbox" id="completedCheckbox" checked />
+            Completed
+          </label>
+          <label>
+            <input type="checkbox" id="watchingCheckbox" />
+            Watching/Reading
+          </label>
+          <label>
+            <input type="checkbox" id="pausedCheckbox" />
+            Paused
+          </label>
+          <label>
+            <input type="checkbox" id="droppedCheckbox" />
+            Dropped
+          </label>
+          <label>
+            <input type="checkbox" id="includeImagesCheckbox" />
+            Include Images
+          </label>
+        </div>
+        <div>
+          <button id="fetchAnimeButton">Fetch Anime List</button>
+          <button id="fetchMangaButton">Fetch Manga List</button>
+        </div>
+        <!-- Progress/Instruction Labels -->
+        <div id="progressLabel"></div>
+        <div id="instructionLabel">Comparison instructions will appear here</div>
+        <div id="unsortedComparisonsLabel">
+          Estimated Total Comparisons Left: 0
+        </div>
+      </div>
+      <div id="comparison-panel">
+        <button class="comparison-button" id="compButton1">NEW wins</button>
+        <button class="comparison-button" id="compButton2">
+          Candidate wins</button
+        >
+      </div>
     </div>
-    
-    <!-- Progress message -->
-    <div id="progress"></div>
-    
-    <!-- Comparison Section (initially hidden) -->
-    <div id="comparison" style="display: none;">
-      <p id="instruction">Comparison instructions will appear here.</p>
-      <button id="newWins">NEW wins</button>
-      <button id="candidateWins">Candidate wins</button>
-    </div>
-    
-    <!-- Final results Section (initially hidden) -->
-    <div id="results" style="display: none;">
-      <h2>Final Ranking (Best to Worst):</h2>
-      <ol id="resultsList"></ol>
-    </div>
-  </div>
-  
-  <!-- PyScript code block -->
-  <py-script>
-import asyncio
-import json, random
-from js import document, fetch
 
-# Global state variables
+    <py-script>
+import requests, random, math, base64
+from io import BytesIO
+from PIL import Image
+from js import document, console
+
 ANILIST_API_URL = "https://graphql.anilist.co"
-unsorted_list = []  # List of media entries: (id, title, score)
-sorted_list = []
-current_index = 0  # Points to the next item to be sorted
 
-# --- Helper functions ---
-def get_el(id):
-    return document.getElementById(id)
+class AniMangaRanker:
+    def __init__(self):
+        # Core state for the tournament ranking
+        self.unsorted_list = []   # List of media entries: (id, title, cover, score, season, seasonYear)
+        self.sorted_list = []
+        self.all_items = []
+        self.current_index = 0
+        self.low_index = 0
+        self.high_index = 0
+        self.offset = 15  # How far to search initially
+        self.initial_estimated_midpoint = None
+        self.initial_low_bound = None
+        self.comparisons_remaining = 0
+        self.unsorted_comparisons_remaining = 0
+        self.image_cache = {}
+        self.resized_image_cache = {}
 
-def update_progress(text):
-    get_el("progress").innerHTML = text
+    # ------------------ DOM Utility Functions ------------------
+    def set_text(self, element_id, text):
+        document.getElementById(element_id).innerText = text
 
-def show_section(id, show=True):
-    get_el(id).style.display = "block" if show else "none"
+    def get_value(self, element_id):
+        return document.getElementById(element_id).value
 
-# --- Fetch AniList Data Using GraphQL ---
-async def fetch_user_list(username, media_type):
-    # Build list of statuses from checkbox values.
-    statuses = []
-    if get_el("completed").checked:
-        statuses.append("COMPLETED")
-    if get_el("watching").checked:
-        statuses.append("CURRENT" if media_type == "ANIME" else "READING")
-    if get_el("paused").checked:
-        statuses.append("PAUSED")
-    if get_el("dropped").checked:
-        statuses.append("DROPPED")
-    if not statuses:
-        update_progress("No list statuses selected!")
-        return []
-    
-    results = []
-    for status in statuses:
-        query = f'''
-        query ($name: String) {{
-          MediaListCollection(userName: $name, type: {media_type}, status: {status}) {{
-            lists {{
-              entries {{
-                score
-                media {{
-                  id
-                  title {{ english romaji }}
+    def is_checked(self, element_id):
+        return document.getElementById(element_id).checked
+
+    # ------------------ AniList API Functions ------------------
+    def build_query(self, media_type, status):
+        # Request id, title, cover, score, season, seasonYear
+        query = f'''query ($name: String) {{
+            MediaListCollection(userName: $name, type: {media_type}, status: {status}) {{
+                lists {{
+                    entries {{
+                        score
+                        media {{
+                            id
+                            title {{
+                                english
+                                romaji
+                            }}
+                            coverImage {{
+                                large
+                            }}
+                            season
+                            seasonYear
+                        }}
+                    }}
                 }}
-              }}
             }}
-          }}
-        }}
-        '''
-        payload = {"query": query, "variables": {"name": username}}
-        response = await fetch(ANILIST_API_URL, {
-            "method": "POST",
-            "headers": {"Content-Type": "application/json", "Accept": "application/json"},
-            "body": json.dumps(payload)
-        })
-        data = await response.json()
-        lists = data.get("data", {}).get("MediaListCollection", {}).get("lists", [])
+        }}'''
+        return query
+
+    def get_selected_statuses(self, media_type):
+        statuses = []
+        if self.is_checked("completedCheckbox"):
+            statuses.append("COMPLETED")
+        if self.is_checked("watchingCheckbox"):
+            statuses.append("CURRENT" if media_type == "ANIME" else "READING")
+        if self.is_checked("pausedCheckbox"):
+            statuses.append("PAUSED")
+        if self.is_checked("droppedCheckbox"):
+            statuses.append("DROPPED")
+        return statuses
+
+    def fetch_user_list(self, username, media_type):
+        statuses = self.get_selected_statuses(media_type)
+        if not statuses:
+            self.set_text("progressLabel", "No list statuses selected!")
+            return []
+        results = []
         seen = set()
-        for lst in lists:
-            for entry in lst.get("entries", []):
-                media = entry.get("media")
-                if media and media.get("id") not in seen:
-                    seen.add(media.get("id"))
-                    title = (media.get("title", {}).get("english") or
-                             media.get("title", {}).get("romaji") or "Unknown")
-                    score = entry.get("score", 0)
-                    results.append((media.get("id"), title, score))
-    # Sort by score in descending order
-    results.sort(key=lambda x: x[2], reverse=True)
-    return results
+        for status in statuses:
+            query = self.build_query(media_type, status)
+            try:
+                res = requests.post(
+                    ANILIST_API_URL,
+                    json={"query": query, "variables": {"name": username}},
+                    timeout=10,
+                )
+                res.raise_for_status()
+                data = res.json()
+            except Exception as e:
+                console.log(f"Error fetching {media_type} list for {username} with status {status}: {e}")
+                continue
+            raw_lists = data.get("data", {}).get("MediaListCollection", {}).get("lists", [])
+            for lst in raw_lists:
+                for entry in lst.get("entries", []):
+                    media = entry.get("media")
+                    if media:
+                        mid = media.get("id")
+                        if mid in seen:
+                            continue
+                        seen.add(mid)
+                        title = (media.get("title", {}).get("english")
+                                 or media.get("title", {}).get("romaji")
+                                 or "Unknown")
+                        cover = media.get("coverImage", {}).get("large") or ""
+                        season = media.get("season")
+                        seasonYear = media.get("seasonYear")
+                        score = entry.get("score", 0)
+                        results.append((mid, title, cover, score, season, seasonYear))
+        # First sort by score descending
+        results.sort(key=lambda x: x[3], reverse=True)
+        # Then randomly shuffle items with the same score
+        new_results = []
+        current_score = None
+        group = []
+        for item in results:
+            score = item[3]
+            if current_score is None or score == current_score:
+                group.append(item)
+                current_score = score
+            else:
+                random.shuffle(group)
+                new_results.extend(group)
+                group = [item]
+                current_score = score
+        if group:
+            random.shuffle(group)
+            new_results.extend(group)
+        return new_results
 
-# --- Initialize Tournament ---
-def init_tournament(items):
-    global unsorted_list, sorted_list, current_index
-    unsorted_list = items
-    if not items:
-        update_progress("No items found!")
-        return
-    sorted_list = [items[0]]
-    current_index = 1
-    update_progress(f"Fetched {len(items)} items. Starting tournament...")
-    show_section("setup", False)
-    show_section("comparison", True)
-    update_comparison()
+    # ------------------ Tournament/Comparison Functions ------------------
+    def estimated_unsorted_comparisons_remaining(self):
+        sorted_count = len(self.sorted_list)
+        remaining_count = len(self.unsorted_list) - self.current_index
+        total = 0
+        for k in range(remaining_count):
+            total += math.ceil(math.log2(sorted_count + k + 1))
+        return total
 
-# --- Update the Comparison UI ---
-def update_comparison():
-    if current_index >= len(unsorted_list):
-        show_final_results()
-        return
-    new_item = unsorted_list[current_index]
-    candidate = sorted_list[-1]
-    get_el("instruction").innerHTML = f"Compare: {new_item[1]} vs. {candidate[1]}"
+    def reset_binary_range(self):
+        self.high_index = len(self.sorted_list) - 1
+        if self.high_index >= 2 * self.offset:
+            self.low_index = self.high_index - 2 * self.offset
+        else:
+            self.low_index = 0
+        self.initial_low_bound = self.low_index
+        candidate = self.low_index + self.offset
+        if candidate <= self.high_index:
+            self.initial_estimated_midpoint = candidate
+        else:
+            self.initial_estimated_midpoint = (self.low_index + self.high_index) // 2
+        self.comparisons_remaining = (math.ceil(math.log2(self.high_index - self.low_index + 1))
+                                      if (self.high_index - self.low_index + 1) > 0 else 0)
+        self.unsorted_comparisons_remaining = self.estimated_unsorted_comparisons_remaining()
+        self.set_text("unsortedComparisonsLabel", f"Estimated Total Comparisons Left: {self.unsorted_comparisons_remaining}")
 
-# --- Handle Comparison Outcome ---
-def handle_comparison(new_item_wins):
-    global current_index
-    new_item = unsorted_list[current_index]
-    if new_item_wins:
-        sorted_list.insert(0, new_item)
-    else:
-        sorted_list.append(new_item)
-    current_index += 1
-    update_progress(f"Processed {current_index} of {len(unsorted_list)} items.")
-    update_comparison()
+    def calculate_mid(self):
+        # Uses the offset until the search must be expanded
+        if self.initial_low_bound is not None and self.initial_low_bound > 0 and self.low_index == 0:
+            return (self.low_index + self.high_index) // 2
+        else:
+            candidate = self.low_index + self.offset
+            if candidate <= self.high_index:
+                return candidate
+            else:
+                return (self.low_index + self.high_index) // 2
 
-# --- Show Final Tournament Results ---
-def show_final_results():
-    show_section("comparison", False)
-    show_section("results", True)
-    resultsList = get_el("resultsList")
-    resultsList.innerHTML = ""
-    for idx, item in enumerate(sorted_list):
-        li = document.createElement("li")
-        li.innerHTML = f"{idx+1}. {item[1]}"
-        resultsList.appendChild(li)
-    update_progress("Tournament complete!")
+    def update_progress(self):
+        total = len(self.unsorted_list)
+        inserted = len(self.sorted_list)
+        remaining_items = total - inserted
+        progress_percentage = (inserted / total * 100) if total > 0 else 0
+        self.set_text("progressLabel", f"Inserted {inserted} of {total}. Remaining: {remaining_items} items ({progress_percentage:.1f}% complete).")
 
-# --- Button Event Handlers ---
-async def fetch_handler(media_type):
-    username = get_el("username").value.strip()
-    if not username:
-        update_progress("Please enter a username!")
-        return
-    update_progress("Fetching data; please wait...")
-    items = await fetch_user_list(username, media_type)
-    if not items:
-        update_progress(f"No entries found for {media_type}.")
-        return
-    init_tournament(items)
+    def pil_image_to_data_url(self, img):
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        return f"data:image/png;base64,{img_str}"
 
-def on_fetch_anime(event):
-    asyncio.ensure_future(fetch_handler("ANIME"))
+    def load_image(self, data):
+        mid = data[0]
+        if mid in self.image_cache:
+            return self.image_cache[mid]
+        try:
+            r = requests.get(data[2], timeout=10)
+            r.raise_for_status()
+            img = Image.open(BytesIO(r.content)).convert("RGB")
+        except Exception as e:
+            console.log(f"Error loading image for {data[1]}: {e}")
+            img = Image.new("RGB", (200,300), color="gray")
+        self.image_cache[mid] = img
+        return img
 
-def on_fetch_manga(event):
-    asyncio.ensure_future(fetch_handler("MANGA"))
+    def resize_image(self, img, max_w, max_h):
+        ow, oh = img.size
+        aspect = ow / oh
+        if max_w / aspect <= max_h:
+            new_w = min(max_w, ow)
+            new_h = int(new_w / aspect)
+        else:
+            new_h = min(max_h, oh)
+            new_w = int(new_h * aspect)
+        return img.resize((new_w, new_h))
 
-def on_new_wins(event):
-    handle_comparison(True)
+    def get_resized_image(self, data, max_w, max_h):
+        key = (data[0], max_w, max_h)
+        if key in self.resized_image_cache:
+            return self.resized_image_cache[key]
+        img = self.load_image(data)
+        resized = self.resize_image(img, max_w, max_h)
+        self.resized_image_cache[key] = resized
+        return resized
 
-def on_candidate_wins(event):
-    handle_comparison(False)
+    def update_comparison_gui(self):
+        if self.current_index >= len(self.unsorted_list):
+            return
+        new_item = self.unsorted_list[self.current_index]
+        mid = self.calculate_mid()
+        if mid < 0 or mid >= len(self.sorted_list):
+            return
+        candidate = self.sorted_list[mid]
+        self.set_text("instructionLabel", f"Compare:\n\n{new_item[1]}\nvs.\n{candidate[1]}")
+        btn1 = document.getElementById("compButton1")
+        btn2 = document.getElementById("compButton2")
+        include_images = self.is_checked("includeImagesCheckbox")
+        if include_images:
+            new_img = self.get_resized_image(new_item, 200, 300)
+            cand_img = self.get_resized_image(candidate, 200, 300)
+            btn1.innerHTML = f'<img src="{self.pil_image_to_data_url(new_img)}" style="max-width:100%;"><br>{new_item[1]}'
+            btn2.innerHTML = f'<img src="{self.pil_image_to_data_url(cand_img)}" style="max-width:100%;"><br>{candidate[1]}'
+        else:
+            btn1.innerText = new_item[1]
+            btn2.innerText = candidate[1]
+        self.update_progress()
 
-# --- Bind DOM Events ---
-get_el("fetchAnime").addEventListener("click", on_fetch_anime)
-get_el("fetchManga").addEventListener("click", on_fetch_manga)
-get_el("newWins").addEventListener("click", on_new_wins)
-get_el("candidateWins").addEventListener("click", on_candidate_wins)
-  </py-script>
-</body>
+    def handle_comparison(self, new_item_wins):
+        if self.unsorted_comparisons_remaining > 0:
+            self.unsorted_comparisons_remaining -= 1
+            self.set_text("unsortedComparisonsLabel", f"Estimated Total Comparisons Left: {self.unsorted_comparisons_remaining}")
+        mid = self.calculate_mid()
+        if self.low_index >= self.high_index:
+            if new_item_wins and (self.initial_low_bound is not None and self.initial_low_bound != 0 and self.low_index == self.initial_low_bound):
+                self.high_index = self.initial_low_bound
+                self.low_index = 0
+                self.update_comparison_gui()
+                return
+            else:
+                insertion_index = self.low_index if new_item_wins else self.low_index + 1
+                self.sorted_list.insert(insertion_index, self.unsorted_list[self.current_index])
+                self.current_index += 1
+                self.reset_binary_range()
+                if self.current_index < len(self.unsorted_list):
+                    self.update_comparison_gui()
+                else:
+                    self.show_final_results()
+                return
+        if new_item_wins:
+            self.high_index = mid - 1
+        else:
+            self.low_index = mid + 1
+        if self.low_index > self.high_index:
+            insertion_index = self.low_index if new_item_wins else self.low_index + 1
+            self.sorted_list.insert(insertion_index, self.unsorted_list[self.current_index])
+            self.current_index += 1
+            self.reset_binary_range()
+            if self.current_index < len(self.unsorted_list):
+                self.update_comparison_gui()
+            else:
+                self.show_final_results()
+        else:
+            self.update_comparison_gui()
+
+    def handle_new_win(self, e):
+        self.handle_comparison(True)
+
+    def handle_candidate_win(self, e):
+        self.handle_comparison(False)
+
+    def show_final_results(self):
+        result_text = "Final Ranking (Best to Worst):\n\n"
+        for i, comp in enumerate(self.sorted_list):
+            result_text += f"{i+1}. {comp[1]}\n"
+        self.set_text("instructionLabel", result_text)
+        self.set_text("progressLabel", "Ranking complete!")
+
+    def start_fetch(self, media_type):
+        username = self.get_value("usernameInput").strip()
+        if not username:
+            self.set_text("progressLabel", "Please enter a username!")
+            return
+        self.set_text("progressLabel", "Fetching data, please wait...")
+        items = self.fetch_user_list(username, media_type)
+        if not items:
+            self.set_text("progressLabel", f"No completed {media_type.lower()} found for {username}")
+            return
+        self.all_items = items
+        self.unsorted_list = items
+        self.sorted_list = [items[0]]
+        self.current_index = 1
+        self.reset_binary_range()
+        self.update_progress()
+        self.update_comparison_gui()
+
+# Create a global instance
+ranker = AniMangaRanker()
+
+# Bind the fetch and comparison buttons
+document.getElementById("fetchAnimeButton").addEventListener("click", lambda e: ranker.start_fetch("ANIME"))
+document.getElementById("fetchMangaButton").addEventListener("click", lambda e: ranker.start_fetch("MANGA"))
+document.getElementById("compButton1").addEventListener("click", ranker.handle_new_win)
+document.getElementById("compButton2").addEventListener("click", ranker.handle_candidate_win)
+    </py-script>
+  </body>
 </html>
