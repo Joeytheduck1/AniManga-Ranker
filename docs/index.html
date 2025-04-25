@@ -4,9 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>AniManga Ranker – PyScript Edition</title>
-    <!-- Using a specific version of PyScript (2025.3.1) -->
-    <link rel="stylesheet" href="https://pyscript.net/snapshots/2025.3.1/core.css" />
-    <script type="module" src="https://pyscript.net/snapshots/2025.3.1/core.js"></script>
+    <!-- Using a specific version of PyScript (2024.9.2) -->
+    <link rel="stylesheet" href="https://pyscript.net/snapshots/2024.9.2/core.css" />
+    <script type="module" src="https://pyscript.net/snapshots/2024.9.2/core.js"></script>
     <style>
       /* General layout styling */
       body {
@@ -44,13 +44,11 @@
         cursor: pointer;
       }
       /* Filter dropdowns and extra buttons */
-      #filter-panel label,
-      #filter-panel select {
+      #filter-panel label, #filter-panel select {
         font-size: 16px;
         margin-right: 10px;
       }
-      #editFinishPanel button,
-      #extraButtons button {
+      #editFinishPanel button, #extraButtons button {
         font-size: 16px;
         margin: 5px;
         padding: 5px 10px;
@@ -92,11 +90,21 @@
           <input type="text" id="usernameInput" placeholder="Username" />
         </div>
         <div>
-          <label><input type="checkbox" id="completedCheckbox" checked> Completed</label>
-          <label><input type="checkbox" id="watchingCheckbox"> Watching/Reading</label>
-          <label><input type="checkbox" id="pausedCheckbox"> Paused</label>
-          <label><input type="checkbox" id="droppedCheckbox"> Dropped</label>
-          <label><input type="checkbox" id="includeImagesCheckbox"> Include Images</label>
+          <label>
+            <input type="checkbox" id="completedCheckbox" checked> Completed
+          </label>
+          <label>
+            <input type="checkbox" id="watchingCheckbox"> Watching/Reading
+          </label>
+          <label>
+            <input type="checkbox" id="pausedCheckbox"> Paused
+          </label>
+          <label>
+            <input type="checkbox" id="droppedCheckbox"> Dropped
+          </label>
+          <label>
+            <input type="checkbox" id="includeImagesCheckbox"> Include Images
+          </label>
         </div>
         <!-- Fetch buttons -->
         <div>
@@ -131,7 +139,6 @@
         <button class="comparison-button" id="compButton2">Candidate wins</button>
       </div>
     </div>
-
     <!-- Edit Sorted List Modal -->
     <div id="editModal" class="modal">
       <div class="modal-content">
@@ -143,7 +150,6 @@
         </div>
       </div>
     </div>
-
     <!-- Debug Modal -->
     <div id="debugModal" class="modal">
       <div class="modal-content">
@@ -154,7 +160,6 @@
         </div>
       </div>
     </div>
-
     <py-script>
 import math, random, json
 from js import document, console, fetch
@@ -164,9 +169,9 @@ ANILIST_API_URL = "https://graphql.anilist.co"
 class AniMangaRanker:
     def __init__(self):
         # Tournament state
-        self.all_items = []       # All fetched items
-        self.unsorted_list = []   # Items to be inserted in ranking
-        self.sorted_list = []     # Ranked items
+        self.all_items = []      # All fetched items
+        self.unsorted_list = []  # Items to be inserted in ranking
+        self.sorted_list = []    # Ranked items
         self.current_index = 0
         self.low_index = 0
         self.high_index = 0
@@ -242,31 +247,31 @@ class AniMangaRanker:
                         if mid in seen:
                             continue
                         seen.add(mid)
-                        title = (media.get("title", {}).get("english") or 
-                                 media.get("title", {}).get("romaji") or "Unknown")
+                        title = (media.get("title", {}).get("english") or media.get("title", {}).get("romaji") or "Unknown")
                         cover = media.get("coverImage", {}).get("large") or ""
                         season = media.get("season")
                         seasonYear = media.get("seasonYear")
                         score = entry.get("score", 0)
                         results.append((mid, title, cover, score, season, seasonYear))
-        results.sort(key=lambda x: x[3], reverse=True)
-        new_results = []
-        current_score = None
-        group = []
-        for item in results:
-            score = item[3]
-            if current_score is None or score == current_score:
-                group.append(item)
-                current_score = score
-            else:
+            results.sort(key=lambda x: x[3], reverse=True)
+            new_results = []
+            current_score = None
+            group = []
+            for item in results:
+                score = item[3]
+                if current_score is None or score == current_score:
+                    group.append(item)
+                    current_score = score
+                else:
+                    random.shuffle(group)
+                    new_results.extend(group)
+                    group = [item]
+                    current_score = score
+            if group:
                 random.shuffle(group)
                 new_results.extend(group)
-                group = [item]
-                current_score = score
-        if group:
-            random.shuffle(group)
-            new_results.extend(group)
-        return new_results
+            results = new_results
+        return results
 
     # ---------- Tournament and Comparison Functions ----------
     def estimated_unsorted_comparisons_remaining(self):
@@ -305,8 +310,7 @@ class AniMangaRanker:
         inserted = len(self.sorted_list)
         remaining_items = total - inserted
         progress_percentage = (inserted / total * 100) if total > 0 else 0
-        self.set_text("progressLabel", "Inserted " + str(inserted) + " of " + str(total) +
-                     ". Remaining: " + str(remaining_items) + " items (" + "{:.1f}".format(progress_percentage) + "% complete).")
+        self.set_text("progressLabel", "Inserted " + str(inserted) + " of " + str(total) + ". Remaining: " + str(remaining_items) + " items (" + "{:.1f}".format(progress_percentage) + "% complete).")
 
     def update_comparison_gui(self):
         if self.current_index >= len(self.unsorted_list):
@@ -442,7 +446,7 @@ class AniMangaRanker:
         filtered = []
         for item in self.all_items:
             if season != "All":
-                if not item[4] or item[4].lower() != season.lower():
+                if not item[4] or item[4].toLowerCase() != season.toLowerCase():
                     continue
             if year != "All":
                 if not item[5] or str(item[5]) != year:
