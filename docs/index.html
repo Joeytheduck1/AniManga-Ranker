@@ -22,7 +22,7 @@
       border-radius: 10px;
       box-shadow: 0 0 10px rgba(0,0,0,0.5);
     }
-    input, button, select, label {
+    input, button, label {
       font-size: 16px;
       margin: 5px;
       padding: 5px;
@@ -30,7 +30,10 @@
     button {
       cursor: pointer;
     }
-    #comparison, #results {
+    #progress {
+      margin: 10px 0;
+    }
+    #comparison {
       margin-top: 20px;
     }
     #instruction {
@@ -38,6 +41,9 @@
       margin-bottom: 20px;
       font-size: 18px;
       text-align: center;
+    }
+    #results {
+      margin-top: 20px;
     }
   </style>
 </head>
@@ -50,11 +56,11 @@
       <label for="username">AniList Username:</label>
       <input type="text" id="username" placeholder="Enter username" />
       <br>
+      <!-- Options as checkboxes -->
       <label><input type="checkbox" id="completed" checked /> Completed</label>
       <label><input type="checkbox" id="watching" /> Watching/Reading</label>
       <label><input type="checkbox" id="paused" /> Paused</label>
       <label><input type="checkbox" id="dropped" /> Dropped</label>
-      <label><input type="checkbox" id="loadImages" /> Include Images</label>
       <br>
       <button id="fetchAnime">Fetch Anime List</button>
       <button id="fetchManga">Fetch Manga List</button>
@@ -65,7 +71,7 @@
     
     <!-- Comparison Section (initially hidden) -->
     <div id="comparison" style="display: none;">
-      <div id="instruction">Comparison instructions will appear here.</div>
+      <p id="instruction">Comparison instructions will appear here.</p>
       <button id="newWins">NEW wins</button>
       <button id="candidateWins">Candidate wins</button>
     </div>
@@ -80,18 +86,16 @@
   <!-- PyScript code block -->
   <py-script>
 import asyncio
-import json
-import random
-from js import document, console, fetch
+import json, random
+from js import document, fetch
 
-# --- Global Variables (adapted state) ---
+# Global state variables
 ANILIST_API_URL = "https://graphql.anilist.co"
-unsorted_list = []  # List of media entries (tuples)
+unsorted_list = []  # List of media entries: (id, title, score)
 sorted_list = []
 current_index = 0    # Points to the next item to be sorted
-offset = 15          # (Not used in this simplified version)
 
-# --- DOM Helper Function ---
+# --- DOM Helper Functions ---
 def get_el(id):
     return document.getElementById(id)
 
@@ -101,13 +105,9 @@ def update_progress(text):
 def show_section(id, show=True):
     get_el(id).style.display = "block" if show else "none"
 
-# --- Utility to Truncate Long Text ---
-def truncate_text(text, limit=50):
-    return text if len(text) <= limit else text[:limit] + "..."
-
-# --- Fetch AniList Data ---
+# --- Fetch AniList Data Using GraphQL ---
 async def fetch_user_list(username, media_type):
-    # Build statuses from checkbox values.
+    # Build list of statuses from checkbox values.
     statuses = []
     if get_el("completed").checked:
         statuses.append("COMPLETED")
@@ -132,9 +132,6 @@ async def fetch_user_list(username, media_type):
                 media {{
                   id
                   title {{ english romaji }}
-                  coverImage {{ large }}
-                  season
-                  seasonYear
                 }}
               }}
             }}
@@ -157,29 +154,11 @@ async def fetch_user_list(username, media_type):
                     seen.add(media.get("id"))
                     title = (media.get("title", {}).get("english") or
                              media.get("title", {}).get("romaji") or "Unknown")
-                    cover = media.get("coverImage", {}).get("large", "")
-                    season = media.get("season")
-                    seasonYear = media.get("seasonYear")
                     score = entry.get("score", 0)
-                    results.append((media.get("id"), title, cover, score, season, seasonYear))
-    # Sort by score descending
-    results.sort(key=lambda x: x[3], reverse=True)
-    # Randomize ties:
-    final_results = []
-    last_score = None
-    group = []
-    for item in results:
-        if last_score is None or item[3] == last_score:
-            group.append(item)
-        else:
-            random.shuffle(group)
-            final_results.extend(group)
-            group = [item]
-        last_score = item[3]
-    if group:
-        random.shuffle(group)
-        final_results.extend(group)
-    return final_results
+                    results.append((media.get("id"), title, score))
+    # Sort by score in descending order
+    results.sort(key=lambda x: x[2], reverse=True)
+    return results
 
 # --- Initialize Tournament ---
 def init_tournament(items):
@@ -190,52 +169,48 @@ def init_tournament(items):
         return
     sorted_list = [items[0]]
     current_index = 1
-    update_progress(f"Fetched {len(items)} items. Beginning tournament...")
+    update_progress(f"Fetched {len(items)} items. Starting tournament...")
     show_section("setup", False)
     show_section("comparison", True)
-    update_comparison_gui()
+    update_comparison()
 
 # --- Update the Comparison UI ---
-def update_comparison_gui():
+def update_comparison():
     if current_index >= len(unsorted_list):
         show_final_results()
         return
-    # For simplicity: compare the next unsorted item with the last item in sorted_list
+    # Compare the next unsorted item with the last sorted candidate
     new_item = unsorted_list[current_index]
-    candidate = sorted_list[-1] if sorted_list else ("N/A",)
-    instruction_text = f"Compare:\n\n{new_item[1]}\n\nvs.\n\n{candidate[1] if len(candidate)>1 else 'N/A'}"
-    get_el("instruction").innerText = instruction_text
+    candidate = sorted_list[-1]
+    get_el("instruction").innerHTML = (
+        f"Compare:<br><br>{new_item[1]}<br><br>vs.<br><br>{candidate[1]}"
+    )
 
 # --- Handle Comparison Outcome ---
 def handle_comparison(new_item_wins):
-    global current_index, unsorted_list, sorted_list
-    if current_index >= len(unsorted_list):
-        show_final_results()
-        return
+    global current_index
     new_item = unsorted_list[current_index]
-    # In this simplified logic, if the new item wins the comparison, insert it at the start.
-    # Otherwise, append it at the end.
     if new_item_wins:
         sorted_list.insert(0, new_item)
     else:
         sorted_list.append(new_item)
     current_index += 1
     update_progress(f"Processed {current_index} of {len(unsorted_list)} items.")
-    update_comparison_gui()
+    update_comparison()
 
 # --- Show Final Tournament Results ---
 def show_final_results():
     show_section("comparison", False)
     show_section("results", True)
-    results_list = get_el("resultsList")
-    results_list.innerHTML = ""
+    resultsList = get_el("resultsList")
+    resultsList.innerHTML = ""
     for idx, item in enumerate(sorted_list):
         li = document.createElement("li")
-        li.innerText = f"{idx+1}. {item[1]}"
-        results_list.appendChild(li)
+        li.innerHTML = f"{idx+1}. {item[1]}"
+        resultsList.appendChild(li)
     update_progress("Tournament complete!")
 
-# --- Button Handlers ---
+# --- Event Handlers ---
 async def fetch_handler(media_type):
     username = get_el("username").value.strip()
     if not username:
@@ -265,6 +240,6 @@ get_el("fetchAnime").addEventListener("click", on_fetch_anime)
 get_el("fetchManga").addEventListener("click", on_fetch_manga)
 get_el("newWins").addEventListener("click", on_new_wins)
 get_el("candidateWins").addEventListener("click", on_candidate_wins)
-  </py-script>
+    </py-script>
 </body>
 </html>
