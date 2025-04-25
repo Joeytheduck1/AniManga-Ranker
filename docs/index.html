@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>AniManga Ranker – PyScript Edition</title>
+  <!-- Load PyScript's CSS and JS from the official CDN -->
   <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
   <script defer src="https://pyscript.net/latest/pyscript.js"></script>
   <style>
@@ -93,9 +94,9 @@ from js import document, fetch
 ANILIST_API_URL = "https://graphql.anilist.co"
 unsorted_list = []  # List of media entries: (id, title, score)
 sorted_list = []
-current_index = 0    # Points to the next item to be sorted
+current_index = 0  # Points to the next item to be sorted
 
-# --- DOM Helper Functions ---
+# --- Helper functions ---
 def get_el(id):
     return document.getElementById(id)
 
@@ -179,12 +180,9 @@ def update_comparison():
     if current_index >= len(unsorted_list):
         show_final_results()
         return
-    # Compare the next unsorted item with the last sorted candidate
     new_item = unsorted_list[current_index]
     candidate = sorted_list[-1]
-    get_el("instruction").innerHTML = (
-        f"Compare:<br><br>{new_item[1]}<br><br>vs.<br><br>{candidate[1]}"
-    )
+    get_el("instruction").innerHTML = f"Compare: {new_item[1]} vs. {candidate[1]}"
 
 # --- Handle Comparison Outcome ---
 def handle_comparison(new_item_wins):
@@ -210,7 +208,7 @@ def show_final_results():
         resultsList.appendChild(li)
     update_progress("Tournament complete!")
 
-# --- Event Handlers ---
+# --- Button Event Handlers ---
 async def fetch_handler(media_type):
     username = get_el("username").value.strip()
     if not username:
@@ -240,6 +238,6 @@ get_el("fetchAnime").addEventListener("click", on_fetch_anime)
 get_el("fetchManga").addEventListener("click", on_fetch_manga)
 get_el("newWins").addEventListener("click", on_new_wins)
 get_el("candidateWins").addEventListener("click", on_candidate_wins)
-    </py-script>
+  </py-script>
 </body>
 </html>
