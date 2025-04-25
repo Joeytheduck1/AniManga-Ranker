@@ -1,1 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AniManga Ranker</title>
+    <style>
+      body {
+        background-color: #2f2f2f;
+        color: #f0f0f0;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 20px;
+      }
+      .hidden {
+        display: none;
+      }
+      input[type="text"],
+      button,
+      select {
+        font-size: 16px;
+        padding: 8px;
+        margin: 5px;
+      }
+      button {
+        cursor: pointer;
+      }
+      h1, h2 {
+        text-align: center;
+      }
+      #instruction {
+        white-space: pre-wrap;
+        text-align: center;
+        margin: 20px 0;
+        font-size: 18px;
+      }
+      #progress {
+        text-align: center;
+        margin: 10px 0;
+      }
+      #comparison-buttons {
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Setup Screen -->
+      <div id="setup-screen">
+        <h1>AniManga Ranker</h1>
+        <label for="username">Enter AniList Username:</label><br />
+        <input type="text" id="username" placeholder="Username" />
+        <br />
+        <label>
+          <input type="checkbox" id="completed" checked /> Completed
+        </label>
+        <label>
+          <input type="checkbox" id="watching" /> Watching (Anime)/Reading (Manga)
+        </label>
+        <label>
+          <input type="checkbox" id="paused" /> Paused
+        </label>
+        <label>
+          <input type="checkbox" id="dropped" /> Dropped
+        </label>
+        <br />
+        <label>
+          <input type="checkbox" id="loadImages" /> Include Images
+        </label>
+        <br />
+        <button id="fetchAnimeBtn">Fetch Anime List</button>
+        <button id="fetchMangaBtn">Fetch Manga List</button>
+        <div id="progress"></div>
+      </div>
+
+      <!-- Comparison Screen -->
+      <div id="comparison-screen" class="hidden">
+        <div id="instruction">
+          Comparison instructions will appear here.
+        </div>
+        <div id="comparison-buttons">
+          <button id="btnNew">NEW wins</button>
+          <button id="btnCandidate">Candidate wins</button>
+        </div>
+      </div>
+
+      <!-- Results Screen -->
+      <div id="results-screen" class="hidden">
+        <h2>Final Ranking (Best to Worst)</h2>
+        <ol id="resultsList"></ol>
+      </div>
+    </div>
+
+    <script>
+      /* Basic variables to hold tournament data */
+      const ANILIST_API_URL = "https://graphql.anilist.co";
+
+      let unsortedList = [];
+      let sortedList = [];
+      let currentIndex = 0;
+
+      document.getElementById("fetchAnimeBtn").addEventListener("click", () =>
+        fetchList("ANIME")
+      );
+      document.getElementById("fetchMangaBtn").addEventListener("click", () =>
+        fetchList("MANGA")
+      );
+
+      // Fetch list from AniList based on username and selected statuses
+      async function fetchList(mediaType) {
+        const username = document.getElementById("username").value.trim();
+        if (username === "") {
+          alert("Please enter a username!");
+          return;
+        }
+        const statuses = getSelectedStatuses(mediaType);
+        if (statuses.length === 0) {
+          alert("No list statuses selected!");
+          return;
+        }
+        document.getElementById("progress").innerText =
+          "Fetching data, please wait...";
+        let results = [];
+
+        // For each status, fetch the list
+        for (let status of statuses) {
+          const query = buildQuery(mediaType, status);
+          try {
+            const response = await fetch(ANILIST_API_URL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              body: JSON.stringify({
+                query: query,
+                variables: { name: username },
+              }),
+            });
+            const json = await response.json();
+            const lists =
+              json.data &&
+              json.data.MediaListCollection &&
+              json.data.MediaListCollection.lists;
+            if (lists) {
+              for (let list of lists) {
+                for (let entry of list.entries) {
+                  const media = entry.media;
+                  if (media) {
+                    const mid = media.id;
+                    const title =
+                      media.title.english || media.title.romaji || "Unknown";
+                    const cover =
+                      media.coverImage && media.coverImage.large
+                        ? media.coverImage.large
+                        : "";
+                    const score = entry.score || 0;
+                    results.push({ id: mid, title, cover, score });
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.error("Error in fetching:", err);
+          }
+        }
+
+        // Remove duplicates
+        const seen = {};
+        unsortedList = results.filter((item) => {
+          if (seen[item.id]) return false;
+          seen[item.id] = true;
+          return true;
+        });
+
+        if (unsortedList.length === 0) {
+          document.getElementById("progress").innerText =
+            "No entries found for the selected criteria.";
+          return;
+        }
+
+        // Sort by score (descending) as an initial order
+        unsortedList.sort((a, b) => b.score - a.score);
+        sortedList = [unsortedList[0]];
+        currentIndex = 1;
+
+        // Switch from setup to comparison screen
+        document.getElementById("setup-screen").classList.add("hidden");
+        document.getElementById("comparison-screen").classList.remove("hidden");
+        updateComparison();
+      }
+
+      // Get selected statuses from the checkboxes
+      function getSelectedStatuses(mediaType) {
+        let statuses = [];
+        if (document.getElementById("completed").checked)
+          statuses.push("COMPLETED");
+        if (document.getElementById("watching").checked)
+          statuses.push(mediaType === "ANIME" ? "CURRENT" : "READING");
+        if (document.getElementById("paused").checked) statuses.push("PAUSED");
+        if (document.getElementById("dropped").checked) statuses.push("DROPPED");
+        return statuses;
+      }
+
+      // Build the GraphQL query string
+      function buildQuery(mediaType, status) {
+        return `
+          query ($name: String) {
+            MediaListCollection(userName: $name, type: ${mediaType}, status: ${status}) {
+              lists {
+                entries {
+                  score
+                  media {
+                    id
+                    title {
+                      english
+                      romaji
+                    }
+                    coverImage {
+                      large
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `;
+      }
+
+      // Set up comparison button event handlers
+      document.getElementById("btnNew").addEventListener("click", () =>
+        handleComparison(true)
+      );
+      document.getElementById("btnCandidate").addEventListener("click", () =>
+        handleComparison(false)
+      );
+
+      // Update the comparison screen with items to compare.
+      function updateComparison() {
+        if (currentIndex >= unsortedList.length) {
+          showFinalResults();
+          return;
+        }
+        // For simplicity, this demo compares the current unsorted item to the LAST item in sortedList.
+        let newItem = unsortedList[currentIndex];
+        let candidate = sortedList[sortedList.length - 1];
+        document.getElementById("instruction").innerText =
+          `Compare:\n\n${newItem.title}\n\nvs.\n\n${candidate.title}`;
+      }
+
+      // Handle the comparison decision:
+      // In this simplified demo, regardless of which button is pressed, we simply append
+      // the new item to the sortedList.
+      function handleComparison(newWins) {
+        let newItem = unsortedList[currentIndex];
+
+        // A real tournament would insert the new item into a sorted position based on binary search.
+        // Here we just append it for demonstration.
+        sortedList.push(newItem);
+        currentIndex++;
+        updateComparison();
+      }
+
+      // Display the final results when done.
+      function showFinalResults() {
+        document.getElementById("comparison-screen").classList.add("hidden");
+        document.getElementById("results-screen").classList.remove("hidden");
+        let resultsList = document.getElementById("resultsList");
+        resultsList.innerHTML = "";
+        sortedList.forEach((item) => {
+          let li = document.createElement("li");
+          li.textContent = item.title;
+          resultsList.appendChild(li);
+        });
+      }
+    </script>
+  </body>
+</html>
 
