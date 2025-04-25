@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>AniManga Ranker – PyScript Edition</title>
-    <!-- Use the updated PyScript core files as modules -->
+    <!-- Using a specific version is recommended; here we use the latest core files -->
     <link rel="stylesheet" href="https://pyscript.net/latest/core.css" />
     <script defer type="module" src="https://pyscript.net/latest/core.js"></script>
     <style>
@@ -48,16 +48,16 @@
         font-size: 16px;
         margin-right: 10px;
       }
-      #editFinishPanel button {
+      #editFinishPanel button, #extraButtons button {
         font-size: 16px;
         margin: 5px;
         padding: 5px 10px;
       }
-      /* Modal styling for editing sorted list */
+      /* Modal styling for editing sorted list and debugging */
       .modal {
         display: none;
         position: fixed;
-        z-index: 1;
+        z-index: 10;
         left: 0;
         top: 0;
         width: 100%;
@@ -67,7 +67,7 @@
       }
       .modal-content {
         background-color: #333;
-        margin: 15% auto;
+        margin: 10% auto;
         padding: 20px;
         border: 1px solid #888;
         width: 80%;
@@ -109,12 +109,16 @@
           <label for="yearDropdown">Year:</label>
           <select id="yearDropdown" onchange="pyodide.runPython('ranker.filter_changed()');"></select>
         </div>
-        <!-- Edit and finish buttons -->
+        <!-- Edit, Finish, Reset, and Debug buttons -->
         <div id="editFinishPanel">
           <button id="editSortedButton">Edit Sorted List</button>
           <button id="finishEarlyButton">Finish List Early</button>
         </div>
-        <!-- Progress and instructions -->
+        <div id="extraButtons" style="text-align: center;">
+          <button id="resetButton">Reset Tournament</button>
+          <button id="debugButton">Show Debug Info</button>
+        </div>
+        <!-- Progress and Instructions -->
         <div id="progressLabel"></div>
         <div id="instructionLabel">Comparison instructions will appear here</div>
         <div id="unsortedComparisonsLabel">Estimated Total Comparisons Left: 0</div>
@@ -138,6 +142,17 @@
       </div>
     </div>
 
+    <!-- Debug Modal -->
+    <div id="debugModal" class="modal">
+      <div class="modal-content">
+        <h2>Debug Info</h2>
+        <div id="debugModalContent"></div>
+        <div style="text-align: center;">
+          <button id="closeDebugButton">Close</button>
+        </div>
+      </div>
+    </div>
+
     <py-script>
 import math, random, json
 from js import document, console, fetch
@@ -148,7 +163,7 @@ class AniMangaRanker:
     def __init__(self):
         # Tournament state
         self.all_items = []       # All fetched items
-        self.unsorted_list = []   # Items to insert into ranking
+        self.unsorted_list = []   # Items to be inserted in ranking
         self.sorted_list = []     # Ranked items
         self.current_index = 0
         self.low_index = 0
@@ -171,6 +186,7 @@ class AniMangaRanker:
 
     # ---------- AniList API Functions ----------
     def build_query(self, media_type, status):
+        # Build query by concatenating strings (to avoid f-string issues in PyScript)
         query = (
             "query ($name: String) { "
             "MediaListCollection(userName: $name, type: " + media_type + ", status: " + status + ") { "
@@ -231,7 +247,6 @@ class AniMangaRanker:
                         seasonYear = media.get("seasonYear")
                         score = entry.get("score", 0)
                         results.append((mid, title, cover, score, season, seasonYear))
-        # Sort by descending score and randomly shuffle items with equal scores
         results.sort(key=lambda x: x[3], reverse=True)
         new_results = []
         current_score = None
@@ -262,14 +277,18 @@ class AniMangaRanker:
 
     def reset_binary_range(self):
         self.high_index = len(self.sorted_list) - 1
-        self.low_index = self.high_index - 2 * self.offset if self.high_index >= 2 * self.offset else 0
+        if self.high_index >= 2 * self.offset:
+            self.low_index = self.high_index - 2 * self.offset
+        else:
+            self.low_index = 0
         self.initial_low_bound = self.low_index
         candidate = self.low_index + self.offset
         if candidate <= self.high_index:
             self.initial_estimated_midpoint = candidate
         else:
             self.initial_estimated_midpoint = (self.low_index + self.high_index) // 2
-        self.comparisons_remaining = math.ceil(math.log2(self.high_index - self.low_index + 1)) if (self.high_index - self.low_index + 1) > 0 else 0
+        self.comparisons_remaining = (math.ceil(math.log2(self.high_index - self.low_index + 1))
+                                      if (self.high_index - self.low_index + 1) > 0 else 0)
         self.unsorted_comparisons_remaining = self.estimated_unsorted_comparisons_remaining()
         self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
 
@@ -379,7 +398,7 @@ class AniMangaRanker:
 
     # ---------- Filtering Functions ----------
     def update_dropdowns(self):
-        # Update season dropdown based on all_items
+        # Update Season dropdown
         seasons = {"Winter": 0, "Spring": 0, "Summer": 0, "Fall": 0}
         for item in self.all_items:
             if item[4]:
@@ -398,11 +417,12 @@ class AniMangaRanker:
                 opt.value = s
                 opt.text = s + " (" + str(count) + ")"
                 season_dropdown.appendChild(opt)
-        # Update year dropdown
+        # Update Year dropdown
         year_counts = {}
         for item in self.all_items:
             if item[5]:
-                year_counts[str(item[5])] = year_counts.get(str(item[5]), 0) + 1
+                yr = str(item[5])
+                year_counts[yr] = year_counts.get(yr, 0) + 1
         year_dropdown = document.getElementById("yearDropdown")
         year_dropdown.innerHTML = ""
         opt = document.createElement("option")
@@ -489,8 +509,38 @@ class AniMangaRanker:
         modal = document.getElementById("editModal")
         modal.style.display = "none"
 
+    # ---------- Extra Functions ----------
     def finish_early(self):
         self.show_final_results()
+
+    def reset_tournament(self):
+        self.all_items = []
+        self.unsorted_list = []
+        self.sorted_list = []
+        self.current_index = 0
+        self.low_index = 0
+        self.high_index = 0
+        self.initial_estimated_midpoint = None
+        self.initial_low_bound = None
+        self.comparisons_remaining = 0
+        self.unsorted_comparisons_remaining = 0
+        self.set_text("progressLabel", "Tournament has been reset. Please fetch a new list.")
+        self.set_text("instructionLabel", "Comparison instructions will appear here")
+        document.getElementById("unsortedComparisonsLabel").innerText = "Estimated Total Comparisons Left: 0"
+
+    def show_debug_info(self):
+        debug_modal = document.getElementById("debugModal")
+        content = document.getElementById("debugModalContent")
+        info = "---- Debug Information ----\n"
+        info += "All Items: " + str(len(self.all_items)) + "\n"
+        info += "Unsorted List: " + str(len(self.unsorted_list)) + "\n"
+        info += "Sorted List: " + str(len(self.sorted_list)) + "\n"
+        info += "Current Index: " + str(self.current_index) + "\n"
+        info += "Low Index: " + str(self.low_index) + "\n"
+        info += "High Index: " + str(self.high_index) + "\n"
+        info += "Comparisons Remaining (unsorted): " + str(self.unsorted_comparisons_remaining)
+        content.innerText = info
+        debug_modal.style.display = "block"
 
 # Create a global instance
 ranker = AniMangaRanker()
@@ -510,8 +560,11 @@ document.getElementById("compButton1").addEventListener("click", ranker.handle_n
 document.getElementById("compButton2").addEventListener("click", ranker.handle_candidate_win)
 document.getElementById("editSortedButton").addEventListener("click", lambda e: ranker.edit_sorted_list())
 document.getElementById("finishEarlyButton").addEventListener("click", lambda e: ranker.finish_early())
+document.getElementById("resetButton").addEventListener("click", lambda e: ranker.reset_tournament())
+document.getElementById("debugButton").addEventListener("click", lambda e: ranker.show_debug_info())
 document.getElementById("saveEditButton").addEventListener("click", lambda e: ranker.save_edited_list())
 document.getElementById("closeEditButton").addEventListener("click", lambda e: ranker.close_edit_modal())
+document.getElementById("closeDebugButton").addEventListener("click", lambda e: document.getElementById("debugModal").style.display = "none")
     </py-script>
   </body>
 </html>
