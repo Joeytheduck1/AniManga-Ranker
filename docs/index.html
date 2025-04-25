@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <title>AniManga Ranker – PyScript Edition</title>
-    <!-- Use the updated PyScript core files -->
+    <!-- Use the updated PyScript core files as modules -->
     <link rel="stylesheet" href="https://pyscript.net/latest/core.css" />
-    <script defer src="https://pyscript.net/latest/core.js"></script>
+    <script defer type="module" src="https://pyscript.net/latest/core.js"></script>
     <style>
       /* General layout styling */
       body {
@@ -43,7 +43,8 @@
         cursor: pointer;
       }
       /* Filter dropdowns and extra buttons */
-      #filter-panel label, #filter-panel select {
+      #filter-panel label,
+      #filter-panel select {
         font-size: 16px;
         margin-right: 10px;
       }
@@ -103,6 +104,7 @@
         <!-- Filter dropdowns -->
         <div id="filter-panel">
           <label for="seasonDropdown">Season:</label>
+          <!-- When a filter changes, we call the Python function -->
           <select id="seasonDropdown" onchange="pyodide.runPython('ranker.filter_changed()');"></select>
           <label for="yearDropdown">Year:</label>
           <select id="yearDropdown" onchange="pyodide.runPython('ranker.filter_changed()');"></select>
@@ -138,16 +140,16 @@
 
     <py-script>
 import math, random, json
-from js import document, console
+from js import document, console, fetch
 
 ANILIST_API_URL = "https://graphql.anilist.co"
 
 class AniMangaRanker:
     def __init__(self):
-        # Core state for tournament ranking
-        self.all_items = []       # All items (fetched from AniList)
-        self.unsorted_list = []   # Items to be inserted into ranking
-        self.sorted_list = []     # Ranked list
+        # Tournament state
+        self.all_items = []       # All fetched items
+        self.unsorted_list = []   # Items to insert into ranking
+        self.sorted_list = []     # Ranked items
         self.current_index = 0
         self.low_index = 0
         self.high_index = 0
@@ -169,27 +171,11 @@ class AniMangaRanker:
 
     # ---------- AniList API Functions ----------
     def build_query(self, media_type, status):
-        query = f'''query ($name: String) {{
-  MediaListCollection(userName: $name, type: {media_type}, status: {status}) {{
-    lists {{
-      entries {{
-        score
-        media {{
-          id
-          title {{
-            english
-            romaji
-          }}
-          coverImage {{
-            large
-          }}
-          season
-          seasonYear
-        }}
-      }}
-    }}
-  }}
-}}'''
+        query = (
+            "query ($name: String) { "
+            "MediaListCollection(userName: $name, type: " + media_type + ", status: " + status + ") { "
+            "lists { entries { score media { id title { english romaji } coverImage { large } season seasonYear } } } } }"
+        )
         return query
 
     def get_selected_statuses(self, media_type):
@@ -221,13 +207,13 @@ class AniMangaRanker:
                 "body": json.dumps(payload)
             }
             try:
-                response = await js.fetch(ANILIST_API_URL, init)
+                response = await fetch(ANILIST_API_URL, init)
                 if not response.ok:
                     console.log("Error fetching data: " + response.statusText)
                     continue
                 data = await response.json()
             except Exception as e:
-                console.log(f"Error fetching {media_type} list for {username} with status {status}: {e}")
+                console.log("Error fetching " + media_type + " list for " + username + ": " + str(e))
                 continue
             raw_lists = data.get("data", {}).get("MediaListCollection", {}).get("lists", [])
             for lst in raw_lists:
@@ -245,6 +231,7 @@ class AniMangaRanker:
                         seasonYear = media.get("seasonYear")
                         score = entry.get("score", 0)
                         results.append((mid, title, cover, score, season, seasonYear))
+        # Sort by descending score and randomly shuffle items with equal scores
         results.sort(key=lambda x: x[3], reverse=True)
         new_results = []
         current_score = None
@@ -264,7 +251,7 @@ class AniMangaRanker:
             new_results.extend(group)
         return new_results
 
-    # ---------- Tournament Functions ----------
+    # ---------- Tournament and Comparison Functions ----------
     def estimated_unsorted_comparisons_remaining(self):
         sorted_count = len(self.sorted_list)
         remaining_count = len(self.unsorted_list) - self.current_index
@@ -275,10 +262,7 @@ class AniMangaRanker:
 
     def reset_binary_range(self):
         self.high_index = len(self.sorted_list) - 1
-        if self.high_index >= 2 * self.offset:
-            self.low_index = self.high_index - 2 * self.offset
-        else:
-            self.low_index = 0
+        self.low_index = self.high_index - 2 * self.offset if self.high_index >= 2 * self.offset else 0
         self.initial_low_bound = self.low_index
         candidate = self.low_index + self.offset
         if candidate <= self.high_index:
@@ -287,24 +271,22 @@ class AniMangaRanker:
             self.initial_estimated_midpoint = (self.low_index + self.high_index) // 2
         self.comparisons_remaining = math.ceil(math.log2(self.high_index - self.low_index + 1)) if (self.high_index - self.low_index + 1) > 0 else 0
         self.unsorted_comparisons_remaining = self.estimated_unsorted_comparisons_remaining()
-        self.set_text("unsortedComparisonsLabel", f"Estimated Total Comparisons Left: {self.unsorted_comparisons_remaining}")
+        self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
 
     def calculate_mid(self):
         if self.initial_low_bound is not None and self.initial_low_bound > 0 and self.low_index == 0:
             return (self.low_index + self.high_index) // 2
         else:
             candidate = self.low_index + self.offset
-            if candidate <= self.high_index:
-                return candidate
-            else:
-                return (self.low_index + self.high_index) // 2
+            return candidate if candidate <= self.high_index else (self.low_index + self.high_index) // 2
 
     def update_progress(self):
         total = len(self.unsorted_list)
         inserted = len(self.sorted_list)
         remaining_items = total - inserted
         progress_percentage = (inserted / total * 100) if total > 0 else 0
-        self.set_text("progressLabel", f"Inserted {inserted} of {total}. Remaining: {remaining_items} items ({progress_percentage:.1f}% complete).")
+        self.set_text("progressLabel", "Inserted " + str(inserted) + " of " + str(total) +
+                     ". Remaining: " + str(remaining_items) + " items (" + "{:.1f}".format(progress_percentage) + "% complete).")
 
     def update_comparison_gui(self):
         if self.current_index >= len(self.unsorted_list):
@@ -314,13 +296,13 @@ class AniMangaRanker:
         if mid < 0 or mid >= len(self.sorted_list):
             return
         candidate = self.sorted_list[mid]
-        self.set_text("instructionLabel", f"Compare:\n\n{new_item[1]}\nvs.\n{candidate[1]}")
+        self.set_text("instructionLabel", "Compare:\n\n" + new_item[1] + "\nvs.\n" + candidate[1])
         btn1 = document.getElementById("compButton1")
         btn2 = document.getElementById("compButton2")
         include_images = self.is_checked("includeImagesCheckbox")
         if include_images:
-            btn1.innerHTML = f'<img src="{new_item[2]}" style="max-width:200px;height:auto;"><br>{new_item[1]}'
-            btn2.innerHTML = f'<img src="{candidate[2]}" style="max-width:200px;height:auto;"><br>{candidate[1]}'
+            btn1.innerHTML = '<img src="' + new_item[2] + '" style="max-width:200px;height:auto;"><br>' + new_item[1]
+            btn2.innerHTML = '<img src="' + candidate[2] + '" style="max-width:200px;height:auto;"><br>' + candidate[1]
         else:
             btn1.innerText = new_item[1]
             btn2.innerText = candidate[1]
@@ -329,10 +311,10 @@ class AniMangaRanker:
     def handle_comparison(self, new_item_wins):
         if self.unsorted_comparisons_remaining > 0:
             self.unsorted_comparisons_remaining -= 1
-            self.set_text("unsortedComparisonsLabel", f"Estimated Total Comparisons Left: {self.unsorted_comparisons_remaining}")
+            self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
         mid = self.calculate_mid()
         if self.low_index >= self.high_index:
-            if new_item_wins and (self.initial_low_bound is not None and self.initial_low_bound != 0 and self.low_index == self.initial_low_bound):
+            if new_item_wins and self.initial_low_bound is not None and self.initial_low_bound != 0 and self.low_index == self.initial_low_bound:
                 self.high_index = self.initial_low_bound
                 self.low_index = 0
                 self.update_comparison_gui()
@@ -372,7 +354,7 @@ class AniMangaRanker:
     def show_final_results(self):
         final_text = "Final Ranking (Best to Worst):\n\n"
         for i, comp in enumerate(self.sorted_list):
-            final_text += f"{i+1}. {comp[1]}\n"
+            final_text += str(i+1) + ". " + comp[1] + "\n"
         self.set_text("instructionLabel", final_text)
         self.set_text("progressLabel", "Ranking complete!")
 
@@ -384,7 +366,7 @@ class AniMangaRanker:
         self.set_text("progressLabel", "Fetching data, please wait...")
         items = await self.fetch_user_list(username, media_type)
         if not items:
-            self.set_text("progressLabel", f"No completed {media_type.lower()} found for {username}")
+            self.set_text("progressLabel", "No completed " + media_type.lower() + " found for " + username)
             return
         self.all_items = items
         self.update_dropdowns()
@@ -414,7 +396,7 @@ class AniMangaRanker:
             if count > 0:
                 opt = document.createElement("option")
                 opt.value = s
-                opt.text = f"{s} ({count})"
+                opt.text = s + " (" + str(count) + ")"
                 season_dropdown.appendChild(opt)
         # Update year dropdown
         year_counts = {}
@@ -430,7 +412,7 @@ class AniMangaRanker:
         for year in sorted(year_counts.keys()):
             opt = document.createElement("option")
             opt.value = year
-            opt.text = f"{year} ({year_counts[year]})"
+            opt.text = year + " (" + str(year_counts[year]) + ")"
             year_dropdown.appendChild(opt)
 
     def filter_changed(self, event=None):
