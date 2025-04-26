@@ -386,7 +386,7 @@ class AniMangaRanker:
         return (
             "query ($name: String) { "
             "MediaListCollection(userName: $name, type: " + media_type + ", status: " + status + ") { "
-            "lists { entries { score media { id title { english romaji } coverImage { large } season seasonYear } } } } }"
+            "lists { entries { score media { id title { english romaji } coverImage { extraLarge } season seasonYear } } } } }"
         )
 
     def get_selected_statuses(self, media_type):
@@ -439,7 +439,7 @@ class AniMangaRanker:
                         seen.add(mid)
                         title = (media.get("title", {}).get("english") or 
                                  media.get("title", {}).get("romaji") or "Unknown")
-                        cover = media.get("coverImage", {}).get("large", "")
+                        cover = media.get("coverImage", {}).get("extraLarge", "")
                         season = media.get("season")
                         seasonYear = media.get("seasonYear")
                         score = entry.get("score", 0)
