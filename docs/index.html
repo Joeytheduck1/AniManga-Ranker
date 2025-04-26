@@ -518,7 +518,7 @@ class AniMangaRanker:
                 opt.value = year
                 opt.text = f"{year} ({year_counts[year]})"
                 year_dropdown.appendChild(opt)
-            // Reapply the previously selected year if possible
+            # Reapply the previously selected year if possible
             year_dropdown.value = current_year;
         except Exception as e:
             console.log("Error in update_dropdowns: " + str(e))
