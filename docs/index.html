@@ -701,6 +701,8 @@ class AniMangaRanker:
                 opt.text = f"{year} ({year_counts[year]})"
                 year_dropdown.appendChild(opt)
             year_dropdown.value = current_year;
+            season_dropdown.value = current_season  # Restore saved value
+            year_dropdown.value = current_year      # Restore saved value
         except Exception as e:
             console.log("Error in update_dropdowns: " + str(e))
 
@@ -901,6 +903,7 @@ def show_restore_modal():
 
 def continue_session(e):
     document.getElementById("restoreModal").style.display = "none"
+    ranker.update_dropdowns()  # Repopulate dropdown options
     ranker.load_progress()  # Load the saved progress.
     console.log("Resuming saved session.")
 
