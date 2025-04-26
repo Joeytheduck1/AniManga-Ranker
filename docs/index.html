@@ -119,17 +119,31 @@
         border-radius: 4px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
         align-items: center;
       }
       .comparison-button:hover {
         background-color: #666;
       }
-      .comparison-button img {
+      .comparison-button .title {
+        flex: 0 0 auto;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .comparison-button .image-container {
+        flex: 1 1 auto;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .comparison-button .image-container img {
+        /* Allow width and height to adjust based on container’s available space */
         max-width: 100%;
-        height: auto;
+        max-height: 100%;
+        object-fit: contain;
         display: block;
-        margin: 0 auto;
+        /* Remove margins if centering is handled by the container */
       }
       /* Generic button styling */
       button {
@@ -514,8 +528,18 @@ class AniMangaRanker:
             btn2 = document.getElementById("compButton2")
             include_images = self.is_checked("includeImagesCheckbox")
             if include_images and new_item[2] and candidate[2]:
-                btn1.innerHTML = f'{new_item[1]}<br><img src="{new_item[2]}" alt="Cover for {new_item[1]}" style="max-width:100%;height:auto;">'
-                btn2.innerHTML = f'{candidate[1]}<br><img src="{candidate[2]}" alt="Cover for {candidate[1]}" style="max-width:100%;height:auto;">'
+                btn1.innerHTML = (
+                    f'<div class="title">{new_item[1]}</div>'
+                    f'<div class="image-container">'
+                    f'  <img src="{new_item[2]}" alt="Cover for {new_item[1]}">'
+                    f'</div>'
+                )
+                btn2.innerHTML = (
+                    f'<div class="title">{candidate[1]}</div>'
+                    f'<div class="image-container">'
+                    f'  <img src="{candidate[2]}" alt="Cover for {candidate[1]}">'
+                    f'</div>'
+                )
             else:
                 btn1.innerText = new_item[1]
                 btn2.innerText = candidate[1]
