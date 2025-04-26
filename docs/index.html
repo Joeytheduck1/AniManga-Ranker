@@ -165,7 +165,8 @@
 
     <py-script>
 import math, random, json
-from js import document, console, fetch
+from js import document, console
+from pyodide.http import pyfetch  # Use pyfetch for reliable async HTTP calls
 
 ANILIST_API_URL = "https://graphql.anilist.co"
 
@@ -197,12 +198,11 @@ class AniMangaRanker:
     # ---------- AniList API Functions ----------
     def build_query(self, media_type, status):
         # Build the GraphQL query string
-        query = (
+        return (
             "query ($name: String) { "
             "MediaListCollection(userName: $name, type: " + media_type + ", status: " + status + ") { "
             "lists { entries { score media { id title { english romaji } coverImage { large } season seasonYear } } } } }"
         )
-        return query
 
     def get_selected_statuses(self, media_type):
         statuses = []
@@ -227,15 +227,15 @@ class AniMangaRanker:
             query = self.build_query(media_type, status)
             variables = {"name": username}
             payload = {"query": query, "variables": variables}
-            init = {
-                "method": "POST",
-                "headers": {"Content-Type": "application/json"},
-                "body": json.dumps(payload)
-            }
             try:
-                response = await fetch(ANILIST_API_URL, init)
+                response = await pyfetch(
+                    url=ANILIST_API_URL,
+                    method="POST",
+                    headers={"Content-Type": "application/json"},
+                    body=json.dumps(payload)
+                )
                 if not response.ok:
-                    console.log("Error fetching data: " + response.statusText)
+                    console.log("Error fetching data: " + response.status)
                     continue
                 data = await response.json()
             except Exception as e:
@@ -254,13 +254,12 @@ class AniMangaRanker:
                             media.get("title", {}).get("english") or 
                             media.get("title", {}).get("romaji") or "Unknown"
                         )
-                        cover = media.get("coverImage", {}).get("large") or ""
+                        cover = media.get("coverImage", {}).get("large", "")
                         season = media.get("season")
                         seasonYear = media.get("seasonYear")
                         score = entry.get("score", 0)
                         results.append((mid, title, cover, score, season, seasonYear))
         results.sort(key=lambda x: x[3], reverse=True)
-        # Shuffle items with the same score
         new_results = []
         current_score = None
         group = []
@@ -300,8 +299,10 @@ class AniMangaRanker:
             self.initial_estimated_midpoint = candidate
         else:
             self.initial_estimated_midpoint = (self.low_index + self.high_index) // 2
-        self.comparisons_remaining = (math.ceil(math.log2(self.high_index - self.low_index + 1))
-                                      if (self.high_index - self.low_index + 1) > 0 else 0)
+        self.comparisons_remaining = (
+            math.ceil(math.log2(self.high_index - self.low_index + 1))
+            if (self.high_index - self.low_index + 1) > 0 else 0
+        )
         self.unsorted_comparisons_remaining = self.estimated_unsorted_comparisons_remaining()
         self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
 
@@ -317,9 +318,10 @@ class AniMangaRanker:
         inserted = len(self.sorted_list)
         remaining_items = total - inserted
         progress_percentage = (inserted / total * 100) if total > 0 else 0
-        self.set_text("progressLabel", "Inserted " + str(inserted) + " of " + str(total) +
-                             ". Remaining: " + str(remaining_items) + " items (" +
-                             "{:.1f}".format(progress_percentage) + "% complete).")
+        self.set_text("progressLabel",
+                      "Inserted " + str(inserted) + " of " + str(total) +
+                      ". Remaining: " + str(remaining_items) +
+                      " items (" + "{:.1f}".format(progress_percentage) + "% complete).")
 
     def update_comparison_gui(self):
         if self.current_index >= len(self.unsorted_list):
@@ -329,11 +331,12 @@ class AniMangaRanker:
         if mid < 0 or mid >= len(self.sorted_list):
             return
         candidate = self.sorted_list[mid]
-        self.set_text("instructionLabel", "Compare:\n\n" + new_item[1] + "\nvs.\n" + candidate[1])
+        self.set_text("instructionLabel",
+                      "Compare:\n\n" + new_item[1] + "\nvs.\n" + candidate[1])
         btn1 = document.getElementById("compButton1")
         btn2 = document.getElementById("compButton2")
         include_images = self.is_checked("includeImagesCheckbox")
-        if include_images:
+        if include_images and new_item[2] and candidate[2]:
             btn1.innerHTML = '<img src="' + new_item[2] + '" style="max-width:200px;height:auto;"><br>' + new_item[1]
             btn2.innerHTML = '<img src="' + candidate[2] + '" style="max-width:200px;height:auto;"><br>' + candidate[1]
         else:
