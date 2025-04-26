@@ -948,8 +948,6 @@ document.getElementById("editSortedButton").addEventListener("click", editSorted
 document.getElementById("finishEarlyButton").addEventListener("click", finishEarlyProxy)
 document.getElementById("saveEditButton").addEventListener("click", saveEditProxy)
 document.getElementById("closeEditButton").addEventListener("click", closeEditProxy)
-document.getElementById("seasonDropdown").addEventListener("change", seasonChangeProxy)
-document.getElementById("yearDropdown").addEventListener("change", yearChangeProxy)
 document.getElementById("closeFinalButton").addEventListener("click", closeFinalProxy)
 
 seasonChangeProxy = create_proxy(lambda e: ranker.filter_changed())
