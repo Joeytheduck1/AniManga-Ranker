@@ -881,7 +881,10 @@ class AniMangaRanker:
               document.getElementById("pausedCheckbox").checked = state.get("pausedCheckbox", False)
               document.getElementById("droppedCheckbox").checked = state.get("droppedCheckbox", False)
               document.getElementById("includeImagesCheckbox").checked = state.get("includeImagesCheckbox", False)
-              document.getElementById("seasonDropdown").value = state.get("seasonDropdown", "All")
+              saved_season = state.get("seasonDropdown", "All")
+              if saved_season != "All":
+                  saved_season = saved_season.capitalize()
+              document.getElementById("seasonDropdown").value = saved_season
               document.getElementById("yearDropdown").value = state.get("yearDropdown", "All")
               
               # Update UI progress and comparison displays:
