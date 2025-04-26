@@ -906,8 +906,8 @@ def show_restore_modal():
 
 def continue_session(e):
     document.getElementById("restoreModal").style.display = "none"
-    ranker.load_progress()  # Load the saved progress.
     ranker.update_dropdowns()  # Repopulate dropdown options
+    ranker.load_progress()  # Load the saved progress.
     console.log("Resuming saved session.")
 
 def start_new_session(e):
