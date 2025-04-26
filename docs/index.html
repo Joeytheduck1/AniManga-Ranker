@@ -454,7 +454,7 @@ class AniMangaRanker:
                       "Inserted " + str(inserted) + " of " + str(total) + ". Remaining: " + 
                       str(remaining_items) + " items ({:.1f}% complete).".format(progress_percentage))
 
-    def update_comparison_gui(self, mid: int) -> None:
+    def update_comparison_gui(self, mid: int = None) -> None:
         try:
             if self.current_index >= len(self.unsorted_list):
                 return
@@ -499,7 +499,7 @@ class AniMangaRanker:
                 if new_item_wins and (self.initial_low_bound is not None and self.initial_low_bound != 0 and self.low_index == self.initial_low_bound):
                     self.high_index = self.initial_low_bound
                     self.low_index = 0
-                    self.update_comparison_gui(self.calculatemid())
+                    self.update_comparison_gui(self.calculate_mid())
                     return
                 else:
                     insertion_index = self.low_index if new_item_wins else self.low_index + 1
