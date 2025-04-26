@@ -113,12 +113,12 @@
           <button id="fetchAnimeButton">Fetch Anime List</button>
           <button id="fetchMangaButton">Fetch Manga List</button>
         </div>
-        <!-- Filter dropdowns -->
+        <!-- Filter dropdowns (removed inline onchange attribute) -->
         <div id="filter-panel">
           <label for="seasonDropdown">Season:</label>
-          <select id="seasonDropdown" onchange="pyodide.runPython('ranker.filter_changed()');"></select>
+          <select id="seasonDropdown"></select>
           <label for="yearDropdown">Year:</label>
-          <select id="yearDropdown" onchange="pyodide.runPython('ranker.filter_changed()');"></select>
+          <select id="yearDropdown"></select>
         </div>
         <!-- Edit, Finish, Reset, and Debug buttons -->
         <div id="editFinishPanel">
@@ -162,7 +162,7 @@
       </div>
     </div>
 
-    <!-- PyScript code using <script type="py"> and create_proxy for event callbacks -->
+    <!-- Python Code using <script type="py"> -->
     <script type="py">
 import math, random, json
 from js import document, console
@@ -316,10 +316,9 @@ class AniMangaRanker:
         inserted = len(self.sorted_list)
         remaining_items = total - inserted
         progress_percentage = (inserted / total * 100) if total > 0 else 0
-        self.set_text("progressLabel",
-                      "Inserted " + str(inserted) + " of " + str(total) +
-                      ". Remaining: " + str(remaining_items) +
-                      " items (" + "{:.1f}".format(progress_percentage) + "% complete).")
+        self.set_text("progressLabel", "Inserted " + str(inserted) + " of " + str(total) +
+                     ". Remaining: " + str(remaining_items) +
+                     " items (" + "{:.1f}".format(progress_percentage) + "% complete).")
 
     def update_comparison_gui(self):
         if self.current_index >= len(self.unsorted_list):
@@ -329,8 +328,7 @@ class AniMangaRanker:
         if mid < 0 or mid >= len(self.sorted_list):
             return
         candidate = self.sorted_list[mid]
-        self.set_text("instructionLabel",
-                      "Compare:\n\n" + new_item[1] + "\nvs.\n" + candidate[1])
+        self.set_text("instructionLabel", "Compare:\n\n" + new_item[1] + "\nvs.\n" + candidate[1])
         btn1 = document.getElementById("compButton1")
         btn2 = document.getElementById("compButton2")
         include_images = self.is_checked("includeImagesCheckbox")
@@ -363,12 +361,10 @@ class AniMangaRanker:
                 else:
                     self.show_final_results()
                 return
-
         if new_item_wins:
             self.high_index = mid - 1
         else:
             self.low_index = mid + 1
-
         if self.low_index >= self.high_index:
             insertion_index = self.low_index if new_item_wins else self.low_index + 1
             self.sorted_list.insert(insertion_index, self.unsorted_list[self.current_index])
@@ -390,7 +386,7 @@ class AniMangaRanker:
     def show_final_results(self):
         final_text = "Final Ranking (Best to Worst):\n\n"
         for i, comp in enumerate(self.sorted_list):
-            final_text += str(i + 1) + ". " + comp[1] + "\n"
+            final_text += str(i+1) + ". " + comp[1] + "\n"
         self.set_text("instructionLabel", final_text)
         self.set_text("progressLabel", "Ranking complete!")
 
@@ -413,7 +409,6 @@ class AniMangaRanker:
         self.update_progress()
         self.update_comparison_gui()
 
-    # ---------- Filtering Functions ----------
     def update_dropdowns(self):
         # Update Season dropdown
         seasons = {"Winter": 0, "Spring": 0, "Summer": 0, "Fall": 0}
@@ -452,7 +447,7 @@ class AniMangaRanker:
             opt.text = f"{year} ({year_counts[year]})"
             year_dropdown.appendChild(opt)
 
-    def filter_changed(self, event=None):
+    def filter_changed(self, e=None):
         season = document.getElementById("seasonDropdown").value
         year = document.getElementById("yearDropdown").value
         filtered = []
@@ -474,7 +469,6 @@ class AniMangaRanker:
         self.update_progress()
         self.update_comparison_gui()
 
-    # ---------- Edit Sorted List Functions ----------
     def edit_sorted_list(self):
         modal = document.getElementById("editModal")
         modal.style.display = "block"
@@ -493,14 +487,14 @@ class AniMangaRanker:
             if idx == 0:
                 upBtn.disabled = True
             else:
-                upBtn.onclick = create_proxy(lambda ev, i=idx: self.move_item_up(i))
+                upBtn.onclick = create_proxy(lambda e, i=idx: self.move_item_up(i))
             li.appendChild(upBtn)
             downBtn = document.createElement("button")
             downBtn.innerText = "↓"
             if idx == len(self.sorted_list) - 1:
                 downBtn.disabled = True
             else:
-                downBtn.onclick = create_proxy(lambda ev, i=idx: self.move_item_down(i))
+                downBtn.onclick = create_proxy(lambda e, i=idx: self.move_item_down(i))
             li.appendChild(downBtn)
             ol.appendChild(li)
         content.appendChild(ol)
@@ -524,7 +518,6 @@ class AniMangaRanker:
         modal = document.getElementById("editModal")
         modal.style.display = "none"
 
-    # ---------- Extra Functions ----------
     def finish_early(self):
         self.show_final_results()
 
@@ -557,10 +550,10 @@ class AniMangaRanker:
         content.innerText = info
         debug_modal.style.display = "block"
 
-# Create a global instance of ranker
+# Create the global instance of ranker
 ranker = AniMangaRanker()
 
-# ---------- Bind Event Listeners using create_proxy to keep callbacks alive ----------
+# ---------- Bind Event Listeners using create_proxy ----------
 fetchAnimeProxy = create_proxy(lambda e: __import__('asyncio').create_task(ranker.start_fetch("ANIME")))
 fetchMangaProxy = create_proxy(lambda e: __import__('asyncio').create_task(ranker.start_fetch("MANGA")))
 compButton1Proxy = create_proxy(ranker.handle_new_win)
@@ -584,6 +577,12 @@ document.getElementById("debugButton").addEventListener("click", debugProxy)
 document.getElementById("saveEditButton").addEventListener("click", saveEditProxy)
 document.getElementById("closeEditButton").addEventListener("click", closeEditProxy)
 document.getElementById("closeDebugButton").addEventListener("click", closeDebugProxy)
+
+# Bind 'change' event listeners for season and year dropdowns
+seasonChangeProxy = create_proxy(lambda e: ranker.filter_changed())
+document.getElementById("seasonDropdown").addEventListener("change", seasonChangeProxy)
+yearChangeProxy = create_proxy(lambda e: ranker.filter_changed())
+document.getElementById("yearDropdown").addEventListener("change", yearChangeProxy)
     </script>
   </body>
 </html>
