@@ -16,19 +16,18 @@
         background-color: #2e2e2e;
         color: #f8f8f2;
       }
-      /* Container uses a flex column layout */
+      /* Full-width container so the page is wider */
       .container {
         display: flex;
         flex-direction: column;
         height: 100vh; /* full viewport height */
-        width: 90%;
-        max-width: 900px;
-        margin: 0 auto;
-        padding: 20px;
+        width: 100%;       /* use full width */
+        margin: 0;
+        padding: 20px 0;   /* Remove horizontal padding so bottom buttons reach the edges */
         box-sizing: border-box;
         font-family: Arial, sans-serif;
       }
-      /* Header: use dark background with contrasting title color */
+      /* Header: dark background with subtle bottom border */
       header {
         flex: 0 0 auto;
         text-align: center;
@@ -42,10 +41,11 @@
         font-size: 1.8em;
         color: #f8f8f2;
       }
-      /* Control panel remains at the top with auto height */
+      /* Control panel remains at the top */
       .control-panel {
         flex: 0 0 auto;
         margin-bottom: 10px;
+        padding: 0 20px; /* add horizontal padding for controls */
       }
       .username-status {
         text-align: center;
@@ -90,13 +90,13 @@
       #unsortedComparisonsLabel {
         font-size: 16px;
       }
-      /* Instruction text: centered and on one line (no "Compare:" prefix) */
+      /* Instruction text: centered, on one line without "Compare:" */
       #instructionLabel {
         text-align: center;
         font-size: 1.2em;
         margin-top: 10px;
       }
-      /* The comparison panel fills the remaining vertical space */
+      /* The comparison panel fills any remaining vertical space */
       .comparison-panel {
         flex: 1;
         display: flex;
@@ -104,7 +104,9 @@
         margin-top: 20px;
         align-items: stretch;
       }
-      /* Comparison buttons fill available space and center content */
+      /* Comparison buttons styling:
+         - Extend fully within the available width/height.
+         - Images inside these buttons display as block (so text appears underneath). */
       .comparison-button {
         flex: 1;
         padding: 20px;
@@ -115,11 +117,17 @@
         border: none;
         border-radius: 4px;
         display: flex;
-        align-items: center;
+        flex-direction: column;
         justify-content: center;
+        align-items: center;
       }
       .comparison-button:hover {
         background-color: #666;
+      }
+      /* Ensure images inside comparison buttons are centered and block-level */
+      .comparison-button img {
+        display: block;
+        margin: 0 auto;
       }
       /* Generic button styling */
       button {
@@ -205,19 +213,24 @@
           </div>
           <div>
             <label>
-              <input type="checkbox" id="completedCheckbox" checked> Completed
+              <input type="checkbox" id="completedCheckbox" checked>
+              Completed
             </label>
             <label>
-              <input type="checkbox" id="watchingCheckbox"> Watching/Reading
+              <input type="checkbox" id="watchingCheckbox">
+              Watching/Reading
             </label>
             <label>
-              <input type="checkbox" id="pausedCheckbox"> Paused
+              <input type="checkbox" id="pausedCheckbox">
+              Paused
             </label>
             <label>
-              <input type="checkbox" id="droppedCheckbox"> Dropped
+              <input type="checkbox" id="droppedCheckbox">
+              Dropped
             </label>
             <label>
-              <input type="checkbox" id="includeImagesCheckbox"> Include Images
+              <input type="checkbox" id="includeImagesCheckbox">
+              Include Images
             </label>
           </div>
         </div>
@@ -244,7 +257,7 @@
           <div id="unsortedComparisonsLabel">Estimated Total Comparisons Left: 0</div>
         </div>
         
-        <!-- Instruction text (now a single centered line without “Compare:”) -->
+        <!-- Instruction text (now a single centered line without "Compare:") -->
         <div id="instructionLabel">Comparison instructions will appear here</div>
       </div>
       
@@ -290,9 +303,9 @@ ANILIST_API_URL = "https://graphql.anilist.co"
 class AniMangaRanker:
     def __init__(self):
         # Tournament state variables
-        self.all_items = []  # All fetched items
-        self.unsorted_list = []  # Items to be inserted in ranking
-        self.sorted_list = []  # Ranked items
+        self.all_items = []       # All fetched items
+        self.unsorted_list = []   # Items to be inserted in ranking
+        self.sorted_list = []     # Ranked items
         self.current_index = 0
         self.low_index = 0
         self.high_index = 0
@@ -448,7 +461,7 @@ class AniMangaRanker:
             if mid < 0 or mid >= len(self.sorted_list):
                 mid = 0
             candidate = self.sorted_list[mid]
-            # Remove the "Compare:" text and format as a single centered line:
+            # Remove "Compare:" prefix; format as a centered single line:
             self.set_text("instructionLabel", new_item[1] + " vs " + candidate[1])
             btn1 = document.getElementById("compButton1")
             btn2 = document.getElementById("compButton2")
