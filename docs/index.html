@@ -21,9 +21,9 @@
         display: flex;
         flex-direction: column;
         height: 100vh; /* full viewport height */
-        width: 100%;       /* use full width */
+        width: 100%; /* use full width */
         margin: 0;
-        padding: 20px 0;   /* remove horizontal padding so bottom buttons reach the edges */
+        padding: 20px 0; /* remove horizontal padding so bottom buttons reach the edges */
         box-sizing: border-box;
         font-family: Arial, sans-serif;
       }
@@ -74,8 +74,7 @@
         align-items: center;
         gap: 10px;
       }
-      .dropdown-group label,
-      .dropdown-group select {
+      .dropdown-group label, .dropdown-group select {
         font-size: 16px;
       }
       /* Progress info arranged side by side */
@@ -86,8 +85,7 @@
         gap: 20px;
         margin-bottom: 10px;
       }
-      #progressLabel,
-      #unsortedComparisonsLabel {
+      #progressLabel, #unsortedComparisonsLabel {
         font-size: 16px;
       }
       /* Instruction text: centered, on one line without "Compare:" */
@@ -210,13 +208,11 @@
     <div id="debugToggle">DEBUG</div>
     <!-- Debug info panel -->
     <div id="debugInfo"></div>
-    
     <div class="container">
       <!-- Header -->
       <header>
         <h1>AniManga Ranker</h1>
       </header>
-      
       <div class="control-panel">
         <!-- Username and checkboxes -->
         <div class="username-status">
@@ -232,40 +228,35 @@
             <label><input type="checkbox" id="includeImagesCheckbox"> Include Images</label>
           </div>
         </div>
-        
-        <!-- Row containing the main buttons and dropdowns -->
-        <div class="controls-row">
-          <div class="btn-group">
-            <button id="fetchAnimeButton">Fetch Anime List</button>
-            <button id="fetchMangaButton">Fetch Manga List</button>
-            <button id="editSortedButton">Edit Sorted List</button>
-            <button id="finishEarlyButton">Finish List Early</button>
-          </div>
-          <div class="dropdown-group">
-            <label for="seasonDropdown">Season:</label>
-            <select id="seasonDropdown"></select>
-            <label for="yearDropdown">Year:</label>
-            <select id="yearDropdown"></select>
-          </div>
-        </div>
-        
-        <!-- Progress and status -->
-        <div class="progress-row">
-          <div id="progressLabel">Inserted 0 of 0. Remaining: 0 items (0% complete).</div>
-          <div id="unsortedComparisonsLabel">Estimated Total Comparisons Left: 0</div>
-        </div>
-        
-        <!-- Instruction text (a centered single line) -->
-        <div id="instructionLabel">Comparison instructions will appear here</div>
       </div>
-      
-      <!-- Comparison buttons panel filling remaining vertical space -->
-      <div class="comparison-panel">
-        <button class="comparison-button" id="compButton1">NEW wins</button>
-        <button class="comparison-button" id="compButton2">Candidate wins</button>
+      <!-- Row containing the main buttons and dropdowns -->
+      <div class="controls-row">
+        <div class="btn-group">
+          <button id="fetchAnimeButton">Fetch Anime List</button>
+          <button id="fetchMangaButton">Fetch Manga List</button>
+          <button id="editSortedButton">Edit Sorted List</button>
+          <button id="finishEarlyButton">Finish List Early</button>
+        </div>
+        <div class="dropdown-group">
+          <label for="seasonDropdown">Season:</label>
+          <select id="seasonDropdown"></select>
+          <label for="yearDropdown">Year:</label>
+          <select id="yearDropdown"></select>
+        </div>
       </div>
+      <!-- Progress and status -->
+      <div class="progress-row">
+        <div id="progressLabel">Inserted 0 of 0. Remaining: 0 items (0% complete).</div>
+        <div id="unsortedComparisonsLabel">Estimated Total Comparisons Left: 0</div>
+      </div>
+      <!-- Instruction text (a centered single line) -->
+      <div id="instructionLabel">Comparison instructions will appear here</div>
     </div>
-    
+    <!-- Comparison buttons panel filling remaining vertical space -->
+    <div class="comparison-panel">
+      <button class="comparison-button" id="compButton1">NEW wins</button>
+      <button class="comparison-button" id="compButton2">Candidate wins</button>
+    </div>
     <!-- Edit Sorted List Modal (drag-and-drop enabled) -->
     <div id="editModal" class="modal">
       <div class="modal-content">
@@ -279,7 +270,6 @@
         </div>
       </div>
     </div>
-    
     <!-- Final Ranking Modal -->
     <div id="finalModal" class="modal">
       <div class="modal-content">
@@ -290,10 +280,9 @@
         </div>
       </div>
     </div>
-    
     <!-- Python code (PyScript) -->
     <script type="py">
-import math, random, json
+import math, random, json, asyncio
 from js import document, console
 from pyodide.http import pyfetch
 from pyodide.ffi import create_proxy
@@ -304,9 +293,9 @@ ANILIST_API_URL = "https://graphql.anilist.co/"
 class AniMangaRanker:
     def __init__(self):
         # Tournament state variables
-        self.all_items = []       # All fetched items
-        self.unsorted_list = []   # Items to be inserted in ranking
-        self.sorted_list = []     # Ranked items
+        self.all_items = []        # All fetched items
+        self.unsorted_list = []    # Items to be inserted in ranking
+        self.sorted_list = []      # Ranked items
         self.current_index = 0
         self.low_index = 0
         self.high_index = 0
@@ -382,8 +371,7 @@ class AniMangaRanker:
                         if mid in seen:
                             continue
                         seen.add(mid)
-                        title = (media.get("title", {}).get("english") or 
-                                 media.get("title", {}).get("romaji") or "Unknown")
+                        title = (media.get("title", {}).get("english") or media.get("title", {}).get("romaji") or "Unknown")
                         cover = media.get("coverImage", {}).get("large", "")
                         season = media.get("season")
                         seasonYear = media.get("seasonYear")
@@ -433,10 +421,10 @@ class AniMangaRanker:
         # Update the unsorted comparisons estimate.
         self.unsorted_comparisons_remaining = self.estimated_unsorted_comparisons_remaining()
         self.update_debug_info()
-    
+
     def calculate_mid(self) -> int:
         # Uses the offset until the search is expanded; after expansion, uses the arithmetic midpoint.
-        if self.initial_low_bound is not None and self.initial_low_bound > 0 and self.low_index == 0:
+        if self.initial_low_bound is not None and self.initial_low_bound >= 0 and self.low_index == 0:
             return (self.low_index + self.high_index) // 2
         else:
             candidate = self.low_index + self.offset
@@ -450,11 +438,10 @@ class AniMangaRanker:
         inserted = len(self.sorted_list)
         remaining_items = total - inserted
         progress_percentage = (inserted / total * 100) if total > 0 else 0
-        self.set_text("progressLabel",
-                      "Inserted " + str(inserted) + " of " + str(total) + ". Remaining: " + 
-                      str(remaining_items) + " items ({:.1f}% complete).".format(progress_percentage))
+        self.set_text("progressLabel", "Inserted " + str(inserted) + " of " + str(total) +
+                      ". Remaining: " + str(remaining_items) + " items ({:.1f}% complete).".format(progress_percentage))
 
-    def update_comparison_gui(self, mid: int) -> None:
+    async def update_comparison_gui(self, mid: int = None) -> None:
         try:
             if self.current_index >= len(self.unsorted_list):
                 return
@@ -464,11 +451,13 @@ class AniMangaRanker:
                 self.current_index += 1
                 self.reset_binary_range()
                 if self.current_index < len(self.unsorted_list):
-                    self.update_comparison_gui()
+                    await asyncio.sleep(0)
+                    await self.update_comparison_gui()
                 else:
                     self.show_final_results()
                 return
-            mid = self.calculate_mid()
+            if mid is None:
+                mid = self.calculate_mid()
             if mid < 0 or mid >= len(self.sorted_list):
                 mid = 0
             candidate = self.sorted_list[mid]
@@ -485,229 +474,57 @@ class AniMangaRanker:
                 btn2.innerText = candidate[1]
             self.update_progress()
             self.update_debug_info()
+            await asyncio.sleep(0)
         except Exception as e:
             console.log("Error in update_comparison_gui: " + str(e))
 
-    def handle_comparison(self, new_item_wins):
+    async def handle_comparison(self, new_item_wins):
         try:
             if self.unsorted_comparisons_remaining > 0:
                 self.unsorted_comparisons_remaining -= 1
-                self.set_text("unsortedComparisonsLabel",
-                              "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
-            mid = self.calculate_mid()
-            if self.low_index >= self.high_index:
-                if new_item_wins and (self.initial_low_bound is not None and self.initial_low_bound != 0 and self.low_index == self.initial_low_bound):
-                    self.high_index = self.initial_low_bound
-                    self.low_index = 0
-                    self.update_comparison_gui(self.calculatemid())
-                    return
+                self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
+                mid = self.calculate_mid()
+                if self.low_index >= self.high_index:
+                    if new_item_wins and (self.initial_low_bound is not None and self.initial_low_bound != 0 and self.low_index == self.initial_low_bound):
+                        self.high_index = self.initial_low_bound
+                        self.low_index = 0
+                        await self.update_comparison_gui(self.calculate_mid())
+                        return
+                    else:
+                        insertion_index = self.low_index if new_item_wins else self.low_index + 1
+                        self.sorted_list.insert(insertion_index, self.unsorted_list[self.current_index])
+                        self.current_index += 1
+                        self.reset_binary_range()
+                        if self.current_index < len(self.unsorted_list):
+                            await self.update_comparison_gui(self.calculate_mid())
+                        else:
+                            self.show_final_results()
+                        return
+                if new_item_wins:
+                    self.high_index = mid - 1
                 else:
+                    self.low_index = mid + 1
+                if self.low_index > self.high_index:
                     insertion_index = self.low_index if new_item_wins else self.low_index + 1
                     self.sorted_list.insert(insertion_index, self.unsorted_list[self.current_index])
                     self.current_index += 1
                     self.reset_binary_range()
                     if self.current_index < len(self.unsorted_list):
-                        self.update_comparison_gui(self.calculate_mid())
+                        await self.update_comparison_gui()
                     else:
                         self.show_final_results()
-                    return
-            if new_item_wins:
-                self.high_index = mid - 1
-            else:
-                self.low_index = mid + 1
-            if self.low_index > self.high_index:
-                insertion_index = self.low_index if new_item_wins else self.low_index + 1
-                self.sorted_list.insert(insertion_index, self.unsorted_list[self.current_index])
-                self.current_index += 1
-                self.reset_binary_range()
-                if self.current_index < len(self.unsorted_list):
-                    self.update_comparison_gui()
                 else:
-                    self.show_final_results()
-            else:
-                self.update_comparison_gui(self.calculate_mid())
+                    await self.update_comparison_gui(self.calculate_mid())
         except Exception as e:
             console.log("Error in handle_comparison: " + str(e))
 
     def handle_new_win(self, e):
-        self.handle_comparison(True)
+        import asyncio
+        asyncio.create_task(self.handle_comparison(True))
 
     def handle_candidate_win(self, e):
-        self.handle_comparison(False)
-
-    def show_final_results(self):
-        try:
-            final_text = "Final Ranking (Best to Worst):\n\n"
-            for i, comp in enumerate(self.sorted_list):
-                final_text += str(i+1) + ". " + comp[1] + "\n"
-            finalModal = document.getElementById("finalModal")
-            document.getElementById("finalModalContent").innerText = final_text
-            finalModal.style.display = "block"
-            self.set_text("progressLabel", "Ranking complete!")
-        except Exception as e:
-            console.log("Error in show_final_results: " + str(e))
-
-    async def start_fetch(self, media_type):
-        try:
-            username = self.get_value("usernameInput").strip()
-            if not username:
-                self.set_text("progressLabel", "Please enter a username!")
-                return
-            self.set_text("progressLabel", "Fetching data, please wait...")
-            items = await self.fetch_user_list(username, media_type)
-            if not items:
-                self.set_text("progressLabel", "No completed " + media_type.lower() + " found for " + username)
-                return
-            self.all_items = items
-            self.update_dropdowns()  # Update dropdowns based on fetched data
-            self.unsorted_list = items
-            self.sorted_list = [items[0]]
-            self.current_index = 1
-            self.reset_binary_range()
-            self.update_progress()
-            self.update_comparison_gui()
-        except Exception as e:
-            console.log("Error in start_fetch: " + str(e))
-
-    def update_dropdowns(self):
-        try:
-            # Preserve current selection (default to "All")
-            current_year = document.getElementById("yearDropdown").value or "All"
-            current_season = document.getElementById("seasonDropdown").value or "All"
-            # Update Season dropdown counts based on current year filter
-            seasons = {"Winter": 0, "Spring": 0, "Summer": 0, "Fall": 0}
-            for item in self.all_items:
-                if current_year != "All":
-                    if not item[5] or str(item[5]) != current_year:
-                        continue
-                if item[4]:
-                    s = item[4].capitalize()
-                    if s in seasons:
-                        seasons[s] += 1
-            total_seasons = sum(seasons.values())
-            season_dropdown = document.getElementById("seasonDropdown")
-            season_dropdown.innerHTML = ""
-            opt = document.createElement("option")
-            opt.value = "All"
-            opt.text = "All (" + str(total_seasons) + ")"
-            season_dropdown.appendChild(opt)
-            for s, count in seasons.items():
-                if count > 0:
-                    opt = document.createElement("option")
-                    opt.value = s
-                    opt.text = f"{s} ({count})"
-                    season_dropdown.appendChild(opt)
-            season_dropdown.value = current_season;
-            
-            # Update Year dropdown counts based on current season filter
-            year_counts = {}
-            for item in self.all_items:
-                if current_season != "All":
-                    if not item[4] or item[4].capitalize() != current_season:
-                        continue
-                if item[5]:
-                    yr = str(item[5])
-                    year_counts[yr] = year_counts.get(yr, 0) + 1
-            total_years = sum(year_counts.values())
-            year_dropdown = document.getElementById("yearDropdown")
-            year_dropdown.innerHTML = ""
-            opt = document.createElement("option")
-            opt.value = "All"
-            opt.text = "All (" + str(total_years) + ")"
-            year_dropdown.appendChild(opt)
-            for year in sorted(year_counts.keys()):
-                opt = document.createElement("option")
-                opt.value = year
-                opt.text = f"{year} ({year_counts[year]})"
-                year_dropdown.appendChild(opt)
-            year_dropdown.value = current_year;
-        except Exception as e:
-            console.log("Error in update_dropdowns: " + str(e))
-
-    def filter_changed(self, e=None):
-        try:
-            self.update_dropdowns()
-            season = document.getElementById("seasonDropdown").value
-            year = document.getElementById("yearDropdown").value
-            filtered = []
-            for item in self.all_items:
-                if season != "All" and (not item[4] or item[4].lower() != season.lower()):
-                    continue
-                if year != "All" and (not item[5] or str(item[5]) != year):
-                    continue
-                filtered.append(item)
-            if not filtered:
-                self.set_text("progressLabel", "No entries match the selected filters!")
-                return
-            self.unsorted_list = filtered
-            self.sorted_list = [filtered[0]]
-            self.current_index = 1
-            self.reset_binary_range()
-            self.update_progress()
-            self.update_comparison_gui()
-        except Exception as e:
-            console.log("Error in filter_changed: " + str(e))
-
-    def edit_sorted_list(self):
-        try:
-            modal = document.getElementById("editModal")
-            modal.style.display = "block"
-            self.refresh_edit_modal()
-        except Exception as e:
-            console.log("Error in edit_sorted_list: " + str(e))
-
-    def on_drag_start(self, e, index):
-        e.dataTransfer.setData("text/plain", str(index))
-
-    def on_drag_over(self, e):
-        e.preventDefault()
-
-    def on_drop(self, e, index):
-        e.preventDefault()
-        src_index = int(e.dataTransfer.getData("text/plain"))
-        if src_index != index:
-            item = self.sorted_list.pop(src_index)
-            self.sorted_list.insert(index, item)
-            self.refresh_edit_modal()
-
-    def refresh_edit_modal(self):
-        try:
-            content = document.getElementById("editModalContent")
-            content.innerHTML = ""
-            ol = document.createElement("ol")
-            for idx, item in enumerate(self.sorted_list):
-                li = document.createElement("li")
-                li.innerText = item[1]
-                li.className = "drag-item"  # apply the drag-item styling
-                li.setAttribute("draggable", "true")
-                li.addEventListener("dragstart", create_proxy(lambda e, i=idx: self.on_drag_start(e, i)))
-                li.addEventListener("dragover", create_proxy(self.on_drag_over))
-                li.addEventListener("drop", create_proxy(lambda e, i=idx: self.on_drop(e, i)))
-                ol.appendChild(li)
-            content.appendChild(ol)
-        except Exception as e:
-            console.log("Error in refresh_edit_modal: " + str(e))
-
-    def save_edited_list(self):
-        try:
-            modal = document.getElementById("editModal")
-            modal.style.display = "none"
-            self.set_text("progressLabel", "Edited sorted list saved.")
-        except Exception as e:
-            console.log("Error in save_edited_list: " + str(e))
-
-    def close_edit_modal(self):
-        try:
-            modal = document.getElementById("editModal")
-            modal.style.display = "none"
-        except Exception as e:
-            console.log("Error in close_edit_modal: " + str(e))
-
-    def finish_early(self):
-        try:
-            self.show_final_results()
-        except Exception as e:
-            console.log("Error in finish_early: " + str(e))
+        import asyncio
+        asyncio.create_task(self.handle_comparison(False))
 
     def show_final_results(self):
         try:
@@ -729,20 +546,22 @@ class AniMangaRanker:
             initial_item = self.sorted_list[self.initial_estimated_midpoint][1] if self.initial_estimated_midpoint is not None and self.sorted_list and self.initial_estimated_midpoint < len(self.sorted_list) else "N/A"
             current_mid = self.calculate_mid()
             current_item = self.sorted_list[current_mid][1] if self.sorted_list and current_mid < len(self.sorted_list) else "N/A"
-            info = (f"Low bound: {low_item} (index {self.low_index})\n"
-                    f"High bound: {high_item} (index {self.high_index})\n"
-                    f"Initial midpoint: {initial_item} (index {self.initial_estimated_midpoint})\n"
-                    f"Current midpoint: {current_item} (index {current_mid})")
+            info = (
+                f"Low bound: {low_item} (index {self.low_index})\n"
+                f"High bound: {high_item} (index {self.high_index})\n"
+                f"Initial midpoint: {initial_item} (index {self.initial_estimated_midpoint})\n"
+                f"Current midpoint: {current_item} (index {current_mid})"
+            )
             debugInfo.innerText = info
         except Exception as e:
             console.log("Error updating debug info: " + str(e))
 
-# Create the global instance of ranker
+    # Create the global instance of ranker
 ranker = AniMangaRanker()
 
 # ---------- Bind Event Listeners using create_proxy ----------
-fetchAnimeProxy = create_proxy(lambda e: __import__('asyncio').create_task(ranker.start_fetch("ANIME")))
-fetchMangaProxy = create_proxy(lambda e: __import__('asyncio').create_task(ranker.start_fetch("MANGA")))
+fetchAnimeProxy = create_proxy(lambda e: asyncio.create_task(ranker.start_fetch("ANIME")))
+fetchMangaProxy = create_proxy(lambda e: asyncio.create_task(ranker.start_fetch("MANGA")))
 compButton1Proxy = create_proxy(ranker.handle_new_win)
 compButton2Proxy = create_proxy(ranker.handle_candidate_win)
 editSortedProxy = create_proxy(lambda e: ranker.edit_sorted_list())
@@ -765,7 +584,6 @@ document.getElementById("seasonDropdown").addEventListener("change", seasonChang
 document.getElementById("yearDropdown").addEventListener("change", yearChangeProxy)
 document.getElementById("closeFinalButton").addEventListener("click", closeFinalProxy)
     </script>
-    
     <!-- Toggle debug info visibility -->
     <script>
       document.getElementById("debugToggle").addEventListener("click", function(){
