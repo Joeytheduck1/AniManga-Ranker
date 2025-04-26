@@ -280,6 +280,35 @@
       </div>
     </div>
     
+    <script>
+      // Function to open the modal
+      function openEditModal() {
+        const modal = document.getElementById("editModal");
+        modal.style.display = "block";
+    
+        // Add keydown event listener for closing with Escape key
+        document.addEventListener("keydown", function handleEscape(event) {
+          if (event.key === "Escape") {
+            closeEditModal();
+            // Remove the event listener to prevent memory leaks
+            document.removeEventListener("keydown", handleEscape);
+          }
+        });
+      }
+    
+      // Function to close the modal
+      function closeEditModal() {
+        const modal = document.getElementById("editModal");
+        modal.style.display = "none";
+      }
+    
+      // Add event listener for the Close button
+      document.getElementById("closeEditButton").addEventListener("click", closeEditModal);
+    
+      // Example usage: Attach openEditModal to a button (optional)
+      document.getElementById("editSortedButton").addEventListener("click", openEditModal);
+    </script>
+    
     <!-- Final Ranking Modal -->
     <div id="finalModal" class="modal">
       <div class="modal-content">
