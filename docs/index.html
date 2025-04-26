@@ -43,7 +43,7 @@
         font-size: 18px;
         cursor: pointer;
       }
-      /* Make all buttons a lighter grey (#555) with white text */
+      /* All buttons use a lighter grey background (#555) with white text */
       button {
         background-color: #555;
         color: white;
@@ -61,7 +61,7 @@
         font-size: 16px;
         margin-right: 10px;
       }
-      /* Modal styling for editing sorted list */
+      /* Modal styling for editing sorted list and final ranking */
       .modal {
         display: none;
         position: fixed;
@@ -86,10 +86,11 @@
         margin: 5px;
         font-size: 16px;
       }
-      /* Debug info panel fixed at top right */
+      /* Debug info panel (hidden by default) */
       #debugInfo {
+        display: none;
         position: fixed;
-        top: 5px;
+        top: 40px;
         right: 5px;
         background: rgba(0, 0, 0, 0.7);
         color: #fff;
@@ -98,10 +99,24 @@
         z-index: 9999;
         white-space: pre-line;
       }
+      /* Debug toggle button always visible in the top right */
+      #debugToggle {
+        position: fixed;
+        top: 5px;
+        right: 5px;
+        background: #555;
+        color: white;
+        padding: 5px;
+        z-index: 10000;
+        cursor: pointer;
+        border-radius: 4px;
+      }
     </style>
   </head>
   <body>
-    <!-- Always visible debug info panel -->
+    <!-- Debug toggle button -->
+    <div id="debugToggle">DEBUG</div>
+    <!-- Debug info panel -->
     <div id="debugInfo"></div>
     
     <div class="container">
@@ -134,7 +149,7 @@
           <button id="fetchAnimeButton">Fetch Anime List</button>
           <button id="fetchMangaButton">Fetch Manga List</button>
         </div>
-        <!-- Filter dropdowns -->
+        <!-- Filter dropdowns (no inline onchange attributes) -->
         <div id="filter-panel">
           <label for="seasonDropdown">Season:</label>
           <select id="seasonDropdown"></select>
@@ -157,7 +172,7 @@
         <button class="comparison-button" id="compButton2">Candidate wins</button>
       </div>
     </div>
-    <!-- Edit Sorted List Modal -->
+    <!-- Edit Sorted List Modal (uses drag-and-drop) -->
     <div id="editModal" class="modal">
       <div class="modal-content">
         <h2>Edit Sorted List</h2>
@@ -165,6 +180,16 @@
         <div style="text-align: center;">
           <button id="saveEditButton">Save</button>
           <button id="closeEditButton">Close</button>
+        </div>
+      </div>
+    </div>
+    <!-- Final Ranking Modal -->
+    <div id="finalModal" class="modal">
+      <div class="modal-content">
+        <h2>Final Ranking</h2>
+        <div id="finalModalContent"></div>
+        <div style="text-align: center;">
+          <button id="closeFinalButton">Close</button>
         </div>
       </div>
     </div>
@@ -333,7 +358,6 @@ class AniMangaRanker:
                 return
             new_item = self.unsorted_list[self.current_index]
             if not self.sorted_list:
-                # Safety: if sorted list is empty, simply add new_item.
                 self.sorted_list.append(new_item)
                 self.current_index += 1
                 self.reset_binary_range()
@@ -342,7 +366,6 @@ class AniMangaRanker:
                 else:
                     self.show_final_results()
                 return
-            # Compute mid and ensure it is within bounds.
             mid = self.calculate_mid()
             if mid < 0 or mid >= len(self.sorted_list):
                 mid = 0
@@ -413,9 +436,10 @@ class AniMangaRanker:
             final_text = "Final Ranking (Best to Worst):\n\n"
             for i, comp in enumerate(self.sorted_list):
                 final_text += str(i+1) + ". " + comp[1] + "\n"
-            self.set_text("instructionLabel", final_text)
+            finalModal = document.getElementById("finalModal")
+            document.getElementById("finalModalContent").innerText = final_text
+            finalModal.style.display = "block"
             self.set_text("progressLabel", "Ranking complete!")
-            self.update_debug_info()
         except Exception as e:
             console.log("Error in show_final_results: " + str(e))
 
@@ -431,7 +455,7 @@ class AniMangaRanker:
                 self.set_text("progressLabel", "No completed " + media_type.lower() + " found for " + username)
                 return
             self.all_items = items
-            self.update_dropdowns()
+            self.update_dropdowns()  # Update counts on fetch
             self.unsorted_list = items
             self.sorted_list = [items[0]]
             self.current_index = 1
@@ -443,18 +467,26 @@ class AniMangaRanker:
 
     def update_dropdowns(self):
         try:
-            # Update Season dropdown with counts
+            # Get current dropdown selections if already set; default to "All"
+            current_year = document.getElementById("yearDropdown").value or "All"
+            current_season = document.getElementById("seasonDropdown").value or "All"
+
+            # Update Season dropdown counts based on current year filter
             seasons = {"Winter": 0, "Spring": 0, "Summer": 0, "Fall": 0}
             for item in self.all_items:
+                if current_year != "All":
+                    if not item[5] or str(item[5]) != current_year:
+                        continue
                 if item[4]:
                     s = item[4].capitalize()
                     if s in seasons:
                         seasons[s] += 1
+            total_seasons = sum(seasons.values())
             season_dropdown = document.getElementById("seasonDropdown")
             season_dropdown.innerHTML = ""
             opt = document.createElement("option")
             opt.value = "All"
-            opt.text = "All"
+            opt.text = "All (" + str(total_seasons) + ")"
             season_dropdown.appendChild(opt)
             for s, count in seasons.items():
                 if count > 0:
@@ -462,17 +494,22 @@ class AniMangaRanker:
                     opt.value = s
                     opt.text = f"{s} ({count})"
                     season_dropdown.appendChild(opt)
-            # Update Year dropdown with counts
+
+            # Update Year dropdown counts based on current season filter
             year_counts = {}
             for item in self.all_items:
+                if current_season != "All":
+                    if not item[4] or item[4].capitalize() != current_season:
+                        continue
                 if item[5]:
                     yr = str(item[5])
                     year_counts[yr] = year_counts.get(yr, 0) + 1
+            total_years = sum(year_counts.values())
             year_dropdown = document.getElementById("yearDropdown")
             year_dropdown.innerHTML = ""
             opt = document.createElement("option")
             opt.value = "All"
-            opt.text = "All"
+            opt.text = "All (" + str(total_years) + ")"
             year_dropdown.appendChild(opt)
             for year in sorted(year_counts.keys()):
                 opt = document.createElement("option")
@@ -484,6 +521,9 @@ class AniMangaRanker:
 
     def filter_changed(self, e=None):
         try:
+            # Update dropdown counts first
+            self.update_dropdowns()
+            # Then, filter the data based on current selections
             season = document.getElementById("seasonDropdown").value
             year = document.getElementById("yearDropdown").value
             filtered = []
@@ -513,6 +553,21 @@ class AniMangaRanker:
         except Exception as e:
             console.log("Error in edit_sorted_list: " + str(e))
 
+    # New drag-and-drop methods for edit modal
+    def on_drag_start(self, e, index):
+        e.dataTransfer.setData("text/plain", str(index))
+
+    def on_drag_over(self, e):
+        e.preventDefault()
+
+    def on_drop(self, e, index):
+        e.preventDefault()
+        src_index = int(e.dataTransfer.getData("text/plain"))
+        if src_index != index:
+            item = self.sorted_list.pop(src_index)
+            self.sorted_list.insert(index, item)
+            self.refresh_edit_modal()
+
     def refresh_edit_modal(self):
         try:
             content = document.getElementById("editModalContent")
@@ -520,46 +575,16 @@ class AniMangaRanker:
             ol = document.createElement("ol")
             for idx, item in enumerate(self.sorted_list):
                 li = document.createElement("li")
-                li.style.marginBottom = "8px"
-                li.innerText = item[1] + " "
-                upBtn = document.createElement("button")
-                upBtn.innerText = "↑"
-                if idx == 0:
-                    upBtn.disabled = True
-                else:
-                    upBtn.onclick = create_proxy(lambda e, i=idx: self.move_item_up(i))
-                li.appendChild(upBtn)
-                downBtn = document.createElement("button")
-                downBtn.innerText = "↓"
-                if idx == len(self.sorted_list) - 1:
-                    downBtn.disabled = True
-                else:
-                    downBtn.onclick = create_proxy(lambda e, i=idx: self.move_item_down(i))
-                li.appendChild(downBtn)
+                li.innerText = item[1]
+                li.setAttribute("draggable", "true")
+                li.style.cursor = "move"
+                li.addEventListener("dragstart", create_proxy(lambda e, i=idx: self.on_drag_start(e, i)))
+                li.addEventListener("dragover", create_proxy(self.on_drag_over))
+                li.addEventListener("drop", create_proxy(lambda e, i=idx: self.on_drop(e, i)))
                 ol.appendChild(li)
             content.appendChild(ol)
         except Exception as e:
             console.log("Error in refresh_edit_modal: " + str(e))
-
-    def move_item_up(self, index):
-        try:
-            if index > 0:
-                self.sorted_list[index], self.sorted_list[index - 1] = self.sorted_list[index - 1], self.sorted_list[index]
-                self.refresh_edit_modal()
-            else:
-                console.log("Cannot move item at index 0 up.")
-        except Exception as e:
-            console.log("Error in move_item_up: " + str(e))
-
-    def move_item_down(self, index):
-        try:
-            if index < len(self.sorted_list) - 1:
-                self.sorted_list[index], self.sorted_list[index + 1] = self.sorted_list[index + 1], self.sorted_list[index]
-                self.refresh_edit_modal()
-            else:
-                console.log("Cannot move last item down.")
-        except Exception as e:
-            console.log("Error in move_item_down: " + str(e))
 
     def save_edited_list(self):
         try:
@@ -586,22 +611,22 @@ class AniMangaRanker:
         try:
             final_text = "Final Ranking (Best to Worst):\n\n"
             for i, comp in enumerate(self.sorted_list):
-                final_text += str(i + 1) + ". " + comp[1] + "\n"
-            self.set_text("instructionLabel", final_text)
+                final_text += str(i+1) + ". " + comp[1] + "\n"
+            finalModal = document.getElementById("finalModal")
+            document.getElementById("finalModalContent").innerText = final_text
+            finalModal.style.display = "block"
             self.set_text("progressLabel", "Ranking complete!")
-            self.update_debug_info()
         except Exception as e:
             console.log("Error in show_final_results: " + str(e))
 
     def update_debug_info(self):
         try:
             debugInfo = document.getElementById("debugInfo")
-            # Get the name of the item at the low bound and high bound
             low_item = self.sorted_list[self.low_index][1] if self.sorted_list and self.low_index < len(self.sorted_list) else "N/A"
             high_item = self.sorted_list[self.high_index][1] if self.sorted_list and self.high_index < len(self.sorted_list) else "N/A"
-            # Get the initial midpoint item (if set)
-            initial_item = self.sorted_list[self.initial_estimated_midpoint][1] if self.initial_estimated_midpoint is not None and self.sorted_list and self.initial_estimated_midpoint < len(self.sorted_list) else "N/A"
-            # Current midpoint computed by calculate_mid()
+            initial_item = (self.sorted_list[self.initial_estimated_midpoint][1]
+                            if self.initial_estimated_midpoint is not None and self.sorted_list and self.initial_estimated_midpoint < len(self.sorted_list)
+                            else "N/A")
             current_mid = self.calculate_mid()
             current_item = self.sorted_list[current_mid][1] if self.sorted_list and current_mid < len(self.sorted_list) else "N/A"
             info = (f"Low bound: {low_item} (index {self.low_index})\n"
@@ -624,9 +649,9 @@ editSortedProxy = create_proxy(lambda e: ranker.edit_sorted_list())
 finishEarlyProxy = create_proxy(lambda e: ranker.finish_early())
 saveEditProxy = create_proxy(lambda e: ranker.save_edited_list())
 closeEditProxy = create_proxy(lambda e: ranker.close_edit_modal())
-# Bind 'change' events for dropdowns
 seasonChangeProxy = create_proxy(lambda e: ranker.filter_changed())
 yearChangeProxy = create_proxy(lambda e: ranker.filter_changed())
+closeFinalProxy = create_proxy(lambda e: setattr(document.getElementById("finalModal").style, "display", "none"))
 
 document.getElementById("fetchAnimeButton").addEventListener("click", fetchAnimeProxy)
 document.getElementById("fetchMangaButton").addEventListener("click", fetchMangaProxy)
@@ -638,6 +663,18 @@ document.getElementById("saveEditButton").addEventListener("click", saveEditProx
 document.getElementById("closeEditButton").addEventListener("click", closeEditProxy)
 document.getElementById("seasonDropdown").addEventListener("change", seasonChangeProxy)
 document.getElementById("yearDropdown").addEventListener("change", yearChangeProxy)
+document.getElementById("closeFinalButton").addEventListener("click", closeFinalProxy)
+    </script>
+    <!-- Toggle debug info visibility on clicking the debug toggle button -->
+    <script>
+      document.getElementById("debugToggle").addEventListener("click", function(){
+          var dbg = document.getElementById("debugInfo");
+          if (dbg.style.display === "none" || dbg.style.display === "") {
+              dbg.style.display = "block";
+          } else {
+              dbg.style.display = "none";
+          }
+      });
     </script>
   </body>
 </html>
