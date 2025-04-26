@@ -571,7 +571,7 @@ resetProxy = create_proxy(lambda e: ranker.reset_tournament())
 debugProxy = create_proxy(lambda e: ranker.show_debug_info())
 saveEditProxy = create_proxy(lambda e: ranker.save_edited_list())
 closeEditProxy = create_proxy(lambda e: ranker.close_edit_modal())
-closeDebugProxy = create_proxy(lambda e: document.getElementById("debugModal").style.display = "none")
+closeDebugProxy = create_proxy(lambda e: setattr(document.getElementById("debugModal").style, "display", "none"))
 
 document.getElementById("fetchAnimeButton").addEventListener("click", fetchAnimeProxy)
 document.getElementById("fetchMangaButton").addEventListener("click", fetchMangaProxy)
