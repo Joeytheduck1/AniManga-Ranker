@@ -454,7 +454,7 @@ class AniMangaRanker:
                       "Inserted " + str(inserted) + " of " + str(total) + ". Remaining: " + 
                       str(remaining_items) + " items ({:.1f}% complete).".format(progress_percentage))
 
-    def update_comparison_gui(self):
+    def update_comparison_gui(self, mid: int) -> None:
         try:
             if self.current_index >= len(self.unsorted_list):
                 return
