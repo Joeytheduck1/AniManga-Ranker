@@ -126,6 +126,8 @@
         background-color: #666;
       }
       .comparison-button img {
+        max-width: 100%;
+        height: auto;
         display: block;
         margin: 0 auto;
       }
@@ -512,8 +514,8 @@ class AniMangaRanker:
             btn2 = document.getElementById("compButton2")
             include_images = self.is_checked("includeImagesCheckbox")
             if include_images and new_item[2] and candidate[2]:
-                btn1.innerHTML = f'<img src="{new_item[2]}" alt="Cover for {new_item[1]}" style="max-width:200px;height:auto;"><br>{new_item[1]}'
-                btn2.innerHTML = f'<img src="{candidate[2]}" alt="Cover for {candidate[1]}" style="max-width:200px;height:auto;"><br>{candidate[1]}'
+                btn1.innerHTML = f'{new_item[1]}<br><img src="{new_item[2]}" alt="Cover for {new_item[1]}" style="max-width:100%;height:auto;">'
+                btn2.innerHTML = f'{candidate[1]}<br><img src="{candidate[2]}" alt="Cover for {candidate[1]}" style="max-width:100%;height:auto;">'
             else:
                 btn1.innerText = new_item[1]
                 btn2.innerText = candidate[1]
