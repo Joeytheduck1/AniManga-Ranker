@@ -44,11 +44,13 @@
         cursor: pointer;
       }
       /* Filter dropdowns and extra buttons */
-      #filter-panel label, #filter-panel select {
+      #filter-panel label,
+      #filter-panel select {
         font-size: 16px;
         margin-right: 10px;
       }
-      #editFinishPanel button, #extraButtons button {
+      #editFinishPanel button,
+      #extraButtons button {
         font-size: 16px;
         margin: 5px;
         padding: 5px 10px;
@@ -160,6 +162,7 @@
         </div>
       </div>
     </div>
+
     <py-script>
 import math, random, json
 from js import document, console, fetch
@@ -168,10 +171,10 @@ ANILIST_API_URL = "https://graphql.anilist.co"
 
 class AniMangaRanker:
     def __init__(self):
-        # Tournament state
-        self.all_items = []      # All fetched items
-        self.unsorted_list = []  # Items to be inserted in ranking
-        self.sorted_list = []    # Ranked items
+        # Tournament state variables
+        self.all_items = []        # All fetched items
+        self.unsorted_list = []    # Items to be inserted in ranking
+        self.sorted_list = []      # Ranked items
         self.current_index = 0
         self.low_index = 0
         self.high_index = 0
@@ -193,7 +196,7 @@ class AniMangaRanker:
 
     # ---------- AniList API Functions ----------
     def build_query(self, media_type, status):
-        # Build query by concatenating strings (to avoid f-string issues)
+        # Build the GraphQL query string
         query = (
             "query ($name: String) { "
             "MediaListCollection(userName: $name, type: " + media_type + ", status: " + status + ") { "
@@ -247,31 +250,34 @@ class AniMangaRanker:
                         if mid in seen:
                             continue
                         seen.add(mid)
-                        title = (media.get("title", {}).get("english") or media.get("title", {}).get("romaji") or "Unknown")
+                        title = (
+                            media.get("title", {}).get("english") or 
+                            media.get("title", {}).get("romaji") or "Unknown"
+                        )
                         cover = media.get("coverImage", {}).get("large") or ""
                         season = media.get("season")
                         seasonYear = media.get("seasonYear")
                         score = entry.get("score", 0)
                         results.append((mid, title, cover, score, season, seasonYear))
-            results.sort(key=lambda x: x[3], reverse=True)
-            new_results = []
-            current_score = None
-            group = []
-            for item in results:
-                score = item[3]
-                if current_score is None or score == current_score:
-                    group.append(item)
-                    current_score = score
-                else:
-                    random.shuffle(group)
-                    new_results.extend(group)
-                    group = [item]
-                    current_score = score
-            if group:
+        results.sort(key=lambda x: x[3], reverse=True)
+        # Shuffle items with the same score
+        new_results = []
+        current_score = None
+        group = []
+        for item in results:
+            score = item[3]
+            if current_score is None or score == current_score:
+                group.append(item)
+                current_score = score
+            else:
                 random.shuffle(group)
                 new_results.extend(group)
-            results = new_results
-        return results
+                group = [item]
+                current_score = score
+        if group:
+            random.shuffle(group)
+            new_results.extend(group)
+        return new_results
 
     # ---------- Tournament and Comparison Functions ----------
     def estimated_unsorted_comparisons_remaining(self):
@@ -294,7 +300,8 @@ class AniMangaRanker:
             self.initial_estimated_midpoint = candidate
         else:
             self.initial_estimated_midpoint = (self.low_index + self.high_index) // 2
-        self.comparisons_remaining = math.ceil(math.log2(self.high_index - self.low_index + 1)) if (self.high_index - self.low_index + 1) > 0 else 0
+        self.comparisons_remaining = (math.ceil(math.log2(self.high_index - self.low_index + 1))
+                                      if (self.high_index - self.low_index + 1) > 0 else 0)
         self.unsorted_comparisons_remaining = self.estimated_unsorted_comparisons_remaining()
         self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
 
@@ -310,7 +317,9 @@ class AniMangaRanker:
         inserted = len(self.sorted_list)
         remaining_items = total - inserted
         progress_percentage = (inserted / total * 100) if total > 0 else 0
-        self.set_text("progressLabel", "Inserted " + str(inserted) + " of " + str(total) + ". Remaining: " + str(remaining_items) + " items (" + "{:.1f}".format(progress_percentage) + "% complete).")
+        self.set_text("progressLabel", "Inserted " + str(inserted) + " of " + str(total) +
+                             ". Remaining: " + str(remaining_items) + " items (" +
+                             "{:.1f}".format(progress_percentage) + "% complete).")
 
     def update_comparison_gui(self):
         if self.current_index >= len(self.unsorted_list):
@@ -353,11 +362,13 @@ class AniMangaRanker:
                 else:
                     self.show_final_results()
                 return
+
         if new_item_wins:
             self.high_index = mid - 1
         else:
             self.low_index = mid + 1
-        if self.low_index > self.high_index:
+
+        if self.low_index >= self.high_index:
             insertion_index = self.low_index if new_item_wins else self.low_index + 1
             self.sorted_list.insert(insertion_index, self.unsorted_list[self.current_index])
             self.current_index += 1
@@ -378,7 +389,7 @@ class AniMangaRanker:
     def show_final_results(self):
         final_text = "Final Ranking (Best to Worst):\n\n"
         for i, comp in enumerate(self.sorted_list):
-            final_text += str(i+1) + ". " + comp[1] + "\n"
+            final_text += str(i + 1) + ". " + comp[1] + "\n"
         self.set_text("instructionLabel", final_text)
         self.set_text("progressLabel", "Ranking complete!")
 
@@ -446,7 +457,7 @@ class AniMangaRanker:
         filtered = []
         for item in self.all_items:
             if season != "All":
-                if not item[4] or item[4].toLowerCase() != season.toLowerCase():
+                if not item[4] or item[4].lower() != season.lower():
                     continue
             if year != "All":
                 if not item[5] or str(item[5]) != year:
