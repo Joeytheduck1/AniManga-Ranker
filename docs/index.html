@@ -49,13 +49,7 @@
         font-size: 16px;
         margin-right: 10px;
       }
-      #editFinishPanel button,
-      #extraButtons button {
-        font-size: 16px;
-        margin: 5px;
-        padding: 5px 10px;
-      }
-      /* Modal styling for editing sorted list and debugging */
+      /* Modal styling for editing sorted list */
       .modal {
         display: none;
         position: fixed;
@@ -80,9 +74,23 @@
         margin: 5px;
         font-size: 16px;
       }
+      /* Debug info panel (fixed at top right) */
+      #debugInfo {
+        position: fixed;
+        top: 5px;
+        right: 5px;
+        background: rgba(0, 0, 0, 0.7);
+        color: #fff;
+        padding: 5px;
+        font-size: 12px;
+        z-index: 9999;
+      }
     </style>
   </head>
   <body>
+    <!-- Debug Info Panel always visible at top-right -->
+    <div id="debugInfo"></div>
+    
     <div class="container">
       <h1>AniManga Ranker – PyScript Edition</h1>
       <div class="control-panel">
@@ -113,23 +121,19 @@
           <button id="fetchAnimeButton">Fetch Anime List</button>
           <button id="fetchMangaButton">Fetch Manga List</button>
         </div>
-        <!-- Filter dropdowns (removed inline onchange attribute) -->
+        <!-- Filter dropdowns -->
         <div id="filter-panel">
           <label for="seasonDropdown">Season:</label>
           <select id="seasonDropdown"></select>
           <label for="yearDropdown">Year:</label>
           <select id="yearDropdown"></select>
         </div>
-        <!-- Edit, Finish, Reset, and Debug buttons -->
+        <!-- Edit and Finish buttons -->
         <div id="editFinishPanel">
           <button id="editSortedButton">Edit Sorted List</button>
           <button id="finishEarlyButton">Finish List Early</button>
         </div>
-        <div id="extraButtons" style="text-align: center;">
-          <button id="resetButton">Reset Tournament</button>
-          <button id="debugButton">Show Debug Info</button>
-        </div>
-        <!-- Progress and Instructions -->
+        <!-- Progress and Instruction Labels -->
         <div id="progressLabel"></div>
         <div id="instructionLabel">Comparison instructions will appear here</div>
         <div id="unsortedComparisonsLabel">Estimated Total Comparisons Left: 0</div>
@@ -148,16 +152,6 @@
         <div style="text-align: center;">
           <button id="saveEditButton">Save</button>
           <button id="closeEditButton">Close</button>
-        </div>
-      </div>
-    </div>
-    <!-- Debug Modal -->
-    <div id="debugModal" class="modal">
-      <div class="modal-content">
-        <h2>Debug Info</h2>
-        <div id="debugModalContent"></div>
-        <div style="text-align: center;">
-          <button id="closeDebugButton">Close</button>
         </div>
       </div>
     </div>
@@ -321,37 +315,67 @@ class AniMangaRanker:
                      " items (" + "{:.1f}".format(progress_percentage) + "% complete).")
 
     def update_comparison_gui(self):
-        if self.current_index >= len(self.unsorted_list):
-            return
-        new_item = self.unsorted_list[self.current_index]
-        mid = self.calculate_mid()
-        if mid < 0 or mid >= len(self.sorted_list):
-            return
-        candidate = self.sorted_list[mid]
-        self.set_text("instructionLabel", "Compare:\n\n" + new_item[1] + "\nvs.\n" + candidate[1])
-        btn1 = document.getElementById("compButton1")
-        btn2 = document.getElementById("compButton2")
-        include_images = self.is_checked("includeImagesCheckbox")
-        if include_images and new_item[2] and candidate[2]:
-            btn1.innerHTML = f'<img src="{new_item[2]}" alt="Cover for {new_item[1]}" style="max-width:200px;height:auto;"><br>{new_item[1]}'
-            btn2.innerHTML = f'<img src="{candidate[2]}" alt="Cover for {candidate[1]}" style="max-width:200px;height:auto;"><br>{candidate[1]}'
-        else:
-            btn1.innerText = new_item[1]
-            btn2.innerText = candidate[1]
-        self.update_progress()
+        try:
+            if self.current_index >= len(self.unsorted_list):
+                return
+            new_item = self.unsorted_list[self.current_index]
+            if not self.sorted_list:
+                # Safety: if sorted list is empty, simply add new_item.
+                self.sorted_list.append(new_item)
+                self.current_index += 1
+                self.reset_binary_range()
+                if self.current_index < len(self.unsorted_list):
+                    self.update_comparison_gui()
+                else:
+                    self.show_final_results()
+                return
+            # Compute mid and ensure it is within bounds.
+            mid = self.calculate_mid()
+            if mid < 0 or mid >= len(self.sorted_list):
+                mid = 0
+            candidate = self.sorted_list[mid]
+            self.set_text("instructionLabel", "Compare:\n\n" + new_item[1] + "\nvs.\n" + candidate[1])
+            btn1 = document.getElementById("compButton1")
+            btn2 = document.getElementById("compButton2")
+            include_images = self.is_checked("includeImagesCheckbox")
+            if include_images and new_item[2] and candidate[2]:
+                btn1.innerHTML = f'<img src="{new_item[2]}" alt="Cover for {new_item[1]}" style="max-width:200px;height:auto;"><br>{new_item[1]}'
+                btn2.innerHTML = f'<img src="{candidate[2]}" alt="Cover for {candidate[1]}" style="max-width:200px;height:auto;"><br>{candidate[1]}'
+            else:
+                btn1.innerText = new_item[1]
+                btn2.innerText = candidate[1]
+            self.update_progress()
+            self.update_debug_info()
+        except Exception as e:
+            console.log("Error in update_comparison_gui: " + str(e))
 
     def handle_comparison(self, new_item_wins):
-        if self.unsorted_comparisons_remaining > 0:
-            self.unsorted_comparisons_remaining -= 1
-            self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
-        mid = self.calculate_mid()
-        if self.low_index >= self.high_index:
-            if new_item_wins and self.initial_low_bound is not None and self.initial_low_bound != 0 and self.low_index == self.initial_low_bound:
-                self.high_index = self.initial_low_bound
-                self.low_index = 0
-                self.update_comparison_gui()
-                return
+        try:
+            if self.unsorted_comparisons_remaining > 0:
+                self.unsorted_comparisons_remaining -= 1
+                self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
+            mid = self.calculate_mid()
+            if self.low_index >= self.high_index:
+                if new_item_wins and self.initial_low_bound is not None and self.initial_low_bound != 0 and self.low_index == self.initial_low_bound:
+                    self.high_index = self.initial_low_bound
+                    self.low_index = 0
+                    self.update_comparison_gui()
+                    return
+                else:
+                    insertion_index = self.low_index if new_item_wins else self.low_index + 1
+                    self.sorted_list.insert(insertion_index, self.unsorted_list[self.current_index])
+                    self.current_index += 1
+                    self.reset_binary_range()
+                    if self.current_index < len(self.unsorted_list):
+                        self.update_comparison_gui()
+                    else:
+                        self.show_final_results()
+                    return
+            if new_item_wins:
+                self.high_index = mid - 1
             else:
+                self.low_index = mid + 1
+            if self.low_index >= self.high_index:
                 insertion_index = self.low_index if new_item_wins else self.low_index + 1
                 self.sorted_list.insert(insertion_index, self.unsorted_list[self.current_index])
                 self.current_index += 1
@@ -360,22 +384,10 @@ class AniMangaRanker:
                     self.update_comparison_gui()
                 else:
                     self.show_final_results()
-                return
-        if new_item_wins:
-            self.high_index = mid - 1
-        else:
-            self.low_index = mid + 1
-        if self.low_index >= self.high_index:
-            insertion_index = self.low_index if new_item_wins else self.low_index + 1
-            self.sorted_list.insert(insertion_index, self.unsorted_list[self.current_index])
-            self.current_index += 1
-            self.reset_binary_range()
-            if self.current_index < len(self.unsorted_list):
-                self.update_comparison_gui()
             else:
-                self.show_final_results()
-        else:
-            self.update_comparison_gui()
+                self.update_comparison_gui()
+        except Exception as e:
+            console.log("Error in handle_comparison: " + str(e))
 
     def handle_new_win(self, e):
         self.handle_comparison(True)
@@ -384,171 +396,197 @@ class AniMangaRanker:
         self.handle_comparison(False)
 
     def show_final_results(self):
-        final_text = "Final Ranking (Best to Worst):\n\n"
-        for i, comp in enumerate(self.sorted_list):
-            final_text += str(i+1) + ". " + comp[1] + "\n"
-        self.set_text("instructionLabel", final_text)
-        self.set_text("progressLabel", "Ranking complete!")
+        try:
+            final_text = "Final Ranking (Best to Worst):\n\n"
+            for i, comp in enumerate(self.sorted_list):
+                final_text += str(i+1) + ". " + comp[1] + "\n"
+            self.set_text("instructionLabel", final_text)
+            self.set_text("progressLabel", "Ranking complete!")
+            self.update_debug_info()
+        except Exception as e:
+            console.log("Error in show_final_results: " + str(e))
 
     async def start_fetch(self, media_type):
-        username = self.get_value("usernameInput").strip()
-        if not username:
-            self.set_text("progressLabel", "Please enter a username!")
-            return
-        self.set_text("progressLabel", "Fetching data, please wait...")
-        items = await self.fetch_user_list(username, media_type)
-        if not items:
-            self.set_text("progressLabel", "No completed " + media_type.lower() + " found for " + username)
-            return
-        self.all_items = items
-        self.update_dropdowns()
-        self.unsorted_list = items
-        self.sorted_list = [items[0]]
-        self.current_index = 1
-        self.reset_binary_range()
-        self.update_progress()
-        self.update_comparison_gui()
+        try:
+            username = self.get_value("usernameInput").strip()
+            if not username:
+                self.set_text("progressLabel", "Please enter a username!")
+                return
+            self.set_text("progressLabel", "Fetching data, please wait...")
+            items = await self.fetch_user_list(username, media_type)
+            if not items:
+                self.set_text("progressLabel", "No completed " + media_type.lower() + " found for " + username)
+                return
+            self.all_items = items
+            self.update_dropdowns()
+            self.unsorted_list = items
+            self.sorted_list = [items[0]]
+            self.current_index = 1
+            self.reset_binary_range()
+            self.update_progress()
+            self.update_comparison_gui()
+        except Exception as e:
+            console.log("Error in start_fetch: " + str(e))
 
     def update_dropdowns(self):
-        # Update Season dropdown
-        seasons = {"Winter": 0, "Spring": 0, "Summer": 0, "Fall": 0}
-        for item in self.all_items:
-            if item[4]:
-                s = item[4].capitalize()
-                if s in seasons:
-                    seasons[s] += 1
-        season_dropdown = document.getElementById("seasonDropdown")
-        season_dropdown.innerHTML = ""
-        opt = document.createElement("option")
-        opt.value = "All"
-        opt.text = "All"
-        season_dropdown.appendChild(opt)
-        for s, count in seasons.items():
-            if count > 0:
-                opt = document.createElement("option")
-                opt.value = s
-                opt.text = f"{s} ({count})"
-                season_dropdown.appendChild(opt)
-        # Update Year dropdown
-        year_counts = {}
-        for item in self.all_items:
-            if item[5]:
-                yr = str(item[5])
-                year_counts[yr] = year_counts.get(yr, 0) + 1
-        year_dropdown = document.getElementById("yearDropdown")
-        year_dropdown.innerHTML = ""
-        opt = document.createElement("option")
-        opt.value = "All"
-        opt.text = "All"
-        year_dropdown.appendChild(opt)
-        for year in sorted(year_counts.keys()):
+        try:
+            # Update Season dropdown with counts
+            seasons = {"Winter": 0, "Spring": 0, "Summer": 0, "Fall": 0}
+            for item in self.all_items:
+                if item[4]:
+                    s = item[4].capitalize()
+                    if s in seasons:
+                        seasons[s] += 1
+            season_dropdown = document.getElementById("seasonDropdown")
+            season_dropdown.innerHTML = ""
             opt = document.createElement("option")
-            opt.value = year
-            opt.text = f"{year} ({year_counts[year]})"
+            opt.value = "All"
+            opt.text = "All"
+            season_dropdown.appendChild(opt)
+            for s, count in seasons.items():
+                if count > 0:
+                    opt = document.createElement("option")
+                    opt.value = s
+                    opt.text = f"{s} ({count})"
+                    season_dropdown.appendChild(opt)
+            # Update Year dropdown with counts
+            year_counts = {}
+            for item in self.all_items:
+                if item[5]:
+                    yr = str(item[5])
+                    year_counts[yr] = year_counts.get(yr, 0) + 1
+            year_dropdown = document.getElementById("yearDropdown")
+            year_dropdown.innerHTML = ""
+            opt = document.createElement("option")
+            opt.value = "All"
+            opt.text = "All"
             year_dropdown.appendChild(opt)
+            for year in sorted(year_counts.keys()):
+                opt = document.createElement("option")
+                opt.value = year
+                opt.text = f"{year} ({year_counts[year]})"
+                year_dropdown.appendChild(opt)
+        except Exception as e:
+            console.log("Error in update_dropdowns: " + str(e))
 
     def filter_changed(self, e=None):
-        season = document.getElementById("seasonDropdown").value
-        year = document.getElementById("yearDropdown").value
-        filtered = []
-        for item in self.all_items:
-            if season != "All":
-                if not item[4] or item[4].lower() != season.lower():
+        try:
+            season = document.getElementById("seasonDropdown").value
+            year = document.getElementById("yearDropdown").value
+            filtered = []
+            for item in self.all_items:
+                if season != "All" and (not item[4] or item[4].lower() != season.lower()):
                     continue
-            if year != "All":
-                if not item[5] or str(item[5]) != year:
+                if year != "All" and (not item[5] or str(item[5]) != year):
                     continue
-            filtered.append(item)
-        if not filtered:
-            self.set_text("progressLabel", "No entries match the selected filters!")
-            return
-        self.unsorted_list = filtered
-        self.sorted_list = [filtered[0]]
-        self.current_index = 1
-        self.reset_binary_range()
-        self.update_progress()
-        self.update_comparison_gui()
+                filtered.append(item)
+            if not filtered:
+                self.set_text("progressLabel", "No entries match the selected filters!")
+                return
+            self.unsorted_list = filtered
+            self.sorted_list = [filtered[0]]
+            self.current_index = 1
+            self.reset_binary_range()
+            self.update_progress()
+            self.update_comparison_gui()
+        except Exception as e:
+            console.log("Error in filter_changed: " + str(e))
 
     def edit_sorted_list(self):
-        modal = document.getElementById("editModal")
-        modal.style.display = "block"
-        self.refresh_edit_modal()
+        try:
+            modal = document.getElementById("editModal")
+            modal.style.display = "block"
+            self.refresh_edit_modal()
+        except Exception as e:
+            console.log("Error in edit_sorted_list: " + str(e))
 
     def refresh_edit_modal(self):
-        content = document.getElementById("editModalContent")
-        content.innerHTML = ""
-        ol = document.createElement("ol")
-        for idx, item in enumerate(self.sorted_list):
-            li = document.createElement("li")
-            li.style.marginBottom = "8px"
-            li.innerText = item[1] + " "
-            upBtn = document.createElement("button")
-            upBtn.innerText = "↑"
-            if idx == 0:
-                upBtn.disabled = True
-            else:
-                upBtn.onclick = create_proxy(lambda e, i=idx: self.move_item_up(i))
-            li.appendChild(upBtn)
-            downBtn = document.createElement("button")
-            downBtn.innerText = "↓"
-            if idx == len(self.sorted_list) - 1:
-                downBtn.disabled = True
-            else:
-                downBtn.onclick = create_proxy(lambda e, i=idx: self.move_item_down(i))
-            li.appendChild(downBtn)
-            ol.appendChild(li)
-        content.appendChild(ol)
+        try:
+            content = document.getElementById("editModalContent")
+            content.innerHTML = ""
+            ol = document.createElement("ol")
+            for idx, item in enumerate(self.sorted_list):
+                li = document.createElement("li")
+                li.style.marginBottom = "8px"
+                li.innerText = item[1] + " "
+                upBtn = document.createElement("button")
+                upBtn.innerText = "↑"
+                if idx == 0:
+                    upBtn.disabled = True
+                else:
+                    upBtn.onclick = create_proxy(lambda e, i=idx: self.move_item_up(i))
+                li.appendChild(upBtn)
+                downBtn = document.createElement("button")
+                downBtn.innerText = "↓"
+                if idx == len(self.sorted_list) - 1:
+                    downBtn.disabled = True
+                else:
+                    downBtn.onclick = create_proxy(lambda e, i=idx: self.move_item_down(i))
+                li.appendChild(downBtn)
+                ol.appendChild(li)
+            content.appendChild(ol)
+        except Exception as e:
+            console.log("Error in refresh_edit_modal: " + str(e))
 
     def move_item_up(self, index):
-        if index > 0:
-            self.sorted_list[index], self.sorted_list[index - 1] = self.sorted_list[index - 1], self.sorted_list[index]
-            self.refresh_edit_modal()
+        try:
+            if index > 0:
+                self.sorted_list[index], self.sorted_list[index-1] = self.sorted_list[index-1], self.sorted_list[index]
+                self.refresh_edit_modal()
+            else:
+                console.log("Cannot move item at index 0 up.")
+        except Exception as e:
+            console.log("Error in move_item_up: " + str(e))
 
     def move_item_down(self, index):
-        if index < len(self.sorted_list) - 1:
-            self.sorted_list[index], self.sorted_list[index + 1] = self.sorted_list[index + 1], self.sorted_list[index]
-            self.refresh_edit_modal()
+        try:
+            if index < len(self.sorted_list) - 1:
+                self.sorted_list[index], self.sorted_list[index+1] = self.sorted_list[index+1], self.sorted_list[index]
+                self.refresh_edit_modal()
+            else:
+                console.log("Cannot move last item down.")
+        except Exception as e:
+            console.log("Error in move_item_down: " + str(e))
 
     def save_edited_list(self):
-        modal = document.getElementById("editModal")
-        modal.style.display = "none"
-        self.set_text("progressLabel", "Edited sorted list saved.")
+        try:
+            modal = document.getElementById("editModal")
+            modal.style.display = "none"
+            self.set_text("progressLabel", "Edited sorted list saved.")
+        except Exception as e:
+            console.log("Error in save_edited_list: " + str(e))
 
     def close_edit_modal(self):
-        modal = document.getElementById("editModal")
-        modal.style.display = "none"
+        try:
+            modal = document.getElementById("editModal")
+            modal.style.display = "none"
+        except Exception as e:
+            console.log("Error in close_edit_modal: " + str(e))
 
     def finish_early(self):
-        self.show_final_results()
+        try:
+            self.show_final_results()
+        except Exception as e:
+            console.log("Error in finish_early: " + str(e))
 
-    def reset_tournament(self):
-        self.all_items = []
-        self.unsorted_list = []
-        self.sorted_list = []
-        self.current_index = 0
-        self.low_index = 0
-        self.high_index = 0
-        self.initial_estimated_midpoint = None
-        self.initial_low_bound = None
-        self.comparisons_remaining = 0
-        self.unsorted_comparisons_remaining = 0
-        self.set_text("progressLabel", "Tournament has been reset. Please fetch a new list.")
-        self.set_text("instructionLabel", "Comparison instructions will appear here")
-        document.getElementById("unsortedComparisonsLabel").innerText = "Estimated Total Comparisons Left: 0"
+    def show_final_results(self):
+        try:
+            final_text = "Final Ranking (Best to Worst):\n\n"
+            for i, comp in enumerate(self.sorted_list):
+                final_text += str(i+1) + ". " + comp[1] + "\n"
+            self.set_text("instructionLabel", final_text)
+            self.set_text("progressLabel", "Ranking complete!")
+            self.update_debug_info()
+        except Exception as e:
+            console.log("Error in show_final_results: " + str(e))
 
-    def show_debug_info(self):
-        debug_modal = document.getElementById("debugModal")
-        content = document.getElementById("debugModalContent")
-        info = "---- Debug Information ----\n"
-        info += "All Items: " + str(len(self.all_items)) + "\n"
-        info += "Unsorted List: " + str(len(self.unsorted_list)) + "\n"
-        info += "Sorted List: " + str(len(self.sorted_list)) + "\n"
-        info += "Current Index: " + str(self.current_index) + "\n"
-        info += "Low Index: " + str(self.low_index) + "\n"
-        info += "High Index: " + str(self.high_index) + "\n"
-        info += "Comparisons Remaining (unsorted): " + str(self.unsorted_comparisons_remaining)
-        content.innerText = info
-        debug_modal.style.display = "block"
+    def update_debug_info(self):
+        try:
+            debugInfo = document.getElementById("debugInfo")
+            info = f"Low: {self.low_index}, High: {self.high_index}, Current: {self.current_index}, Sorted: {len(self.sorted_list)}"
+            debugInfo.innerText = info
+        except Exception as e:
+            console.log("Error updating debug info: " + str(e))
 
 # Create the global instance of ranker
 ranker = AniMangaRanker()
@@ -560,11 +598,11 @@ compButton1Proxy = create_proxy(ranker.handle_new_win)
 compButton2Proxy = create_proxy(ranker.handle_candidate_win)
 editSortedProxy = create_proxy(lambda e: ranker.edit_sorted_list())
 finishEarlyProxy = create_proxy(lambda e: ranker.finish_early())
-resetProxy = create_proxy(lambda e: ranker.reset_tournament())
-debugProxy = create_proxy(lambda e: ranker.show_debug_info())
 saveEditProxy = create_proxy(lambda e: ranker.save_edited_list())
 closeEditProxy = create_proxy(lambda e: ranker.close_edit_modal())
-closeDebugProxy = create_proxy(lambda e: setattr(document.getElementById("debugModal").style, "display", "none"))
+# Bind 'change' events for dropdowns
+seasonChangeProxy = create_proxy(lambda e: ranker.filter_changed())
+yearChangeProxy = create_proxy(lambda e: ranker.filter_changed())
 
 document.getElementById("fetchAnimeButton").addEventListener("click", fetchAnimeProxy)
 document.getElementById("fetchMangaButton").addEventListener("click", fetchMangaProxy)
@@ -572,16 +610,9 @@ document.getElementById("compButton1").addEventListener("click", compButton1Prox
 document.getElementById("compButton2").addEventListener("click", compButton2Proxy)
 document.getElementById("editSortedButton").addEventListener("click", editSortedProxy)
 document.getElementById("finishEarlyButton").addEventListener("click", finishEarlyProxy)
-document.getElementById("resetButton").addEventListener("click", resetProxy)
-document.getElementById("debugButton").addEventListener("click", debugProxy)
 document.getElementById("saveEditButton").addEventListener("click", saveEditProxy)
 document.getElementById("closeEditButton").addEventListener("click", closeEditProxy)
-document.getElementById("closeDebugButton").addEventListener("click", closeDebugProxy)
-
-# Bind 'change' event listeners for season and year dropdowns
-seasonChangeProxy = create_proxy(lambda e: ranker.filter_changed())
 document.getElementById("seasonDropdown").addEventListener("change", seasonChangeProxy)
-yearChangeProxy = create_proxy(lambda e: ranker.filter_changed())
 document.getElementById("yearDropdown").addEventListener("change", yearChangeProxy)
     </script>
   </body>
