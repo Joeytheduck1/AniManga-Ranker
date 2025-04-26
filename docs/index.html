@@ -881,11 +881,16 @@ class AniMangaRanker:
               document.getElementById("pausedCheckbox").checked = state.get("pausedCheckbox", False)
               document.getElementById("droppedCheckbox").checked = state.get("droppedCheckbox", False)
               document.getElementById("includeImagesCheckbox").checked = state.get("includeImagesCheckbox", False)
+              # Normalize the season value:
               saved_season = state.get("seasonDropdown", "All")
               if saved_season != "All":
-                  saved_season = saved_season.capitalize()
+                  saved_season = saved_season.capitalize()  # For example, convert "FALL" to "Fall"
               document.getElementById("seasonDropdown").value = saved_season
-              document.getElementById("yearDropdown").value = state.get("yearDropdown", "All")
+              console.log("load_progress: seasonDropdown set to:", saved_season)
+              
+              saved_year = state.get("yearDropdown", "All")
+              document.getElementById("yearDropdown").value = saved_year
+              console.log("load_progress: yearDropdown set to:", saved_year)
               
               # Update UI progress and comparison displays:
               self.update_progress()
@@ -906,8 +911,8 @@ def show_restore_modal():
 
 def continue_session(e):
     document.getElementById("restoreModal").style.display = "none"
-    ranker.update_dropdowns()  # Repopulate dropdown options
     ranker.load_progress()  # Load the saved progress.
+    ranker.update_dropdowns()  # Repopulate dropdown options
     console.log("Resuming saved session.")
 
 def start_new_session(e):
