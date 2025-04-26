@@ -23,7 +23,7 @@
         height: 100vh; /* full viewport height */
         width: 100%;       /* use full width */
         margin: 0;
-        padding: 20px 0;   /* Remove horizontal padding so bottom buttons reach the edges */
+        padding: 20px 0;   /* remove horizontal padding so bottom buttons reach the edges */
         box-sizing: border-box;
         font-family: Arial, sans-serif;
       }
@@ -45,7 +45,7 @@
       .control-panel {
         flex: 0 0 auto;
         margin-bottom: 10px;
-        padding: 0 20px; /* add horizontal padding for controls */
+        padding: 0 20px;
       }
       .username-status {
         text-align: center;
@@ -106,7 +106,8 @@
       }
       /* Comparison buttons styling:
          - Extend fully within the available width/height.
-         - Images inside these buttons display as block (so text appears underneath). */
+         - Images inside these buttons will be displayed as block elements so that text appears underneath.
+      */
       .comparison-button {
         flex: 1;
         padding: 20px;
@@ -124,7 +125,6 @@
       .comparison-button:hover {
         background-color: #666;
       }
-      /* Ensure images inside comparison buttons are centered and block-level */
       .comparison-button img {
         display: block;
         margin: 0 auto;
@@ -225,26 +225,11 @@
             <input type="text" id="usernameInput" placeholder="Username" title="Enter your AniList username" />
           </div>
           <div>
-            <label>
-              <input type="checkbox" id="completedCheckbox" checked>
-              Completed
-            </label>
-            <label>
-              <input type="checkbox" id="watchingCheckbox">
-              Watching/Reading
-            </label>
-            <label>
-              <input type="checkbox" id="pausedCheckbox">
-              Paused
-            </label>
-            <label>
-              <input type="checkbox" id="droppedCheckbox">
-              Dropped
-            </label>
-            <label>
-              <input type="checkbox" id="includeImagesCheckbox">
-              Include Images
-            </label>
+            <label><input type="checkbox" id="completedCheckbox" checked> Completed</label>
+            <label><input type="checkbox" id="watchingCheckbox"> Watching/Reading</label>
+            <label><input type="checkbox" id="pausedCheckbox"> Paused</label>
+            <label><input type="checkbox" id="droppedCheckbox"> Dropped</label>
+            <label><input type="checkbox" id="includeImagesCheckbox"> Include Images</label>
           </div>
         </div>
         
@@ -270,7 +255,7 @@
           <div id="unsortedComparisonsLabel">Estimated Total Comparisons Left: 0</div>
         </div>
         
-        <!-- Instruction text (now a single centered line without "Compare:") -->
+        <!-- Instruction text (a centered single line) -->
         <div id="instructionLabel">Comparison instructions will appear here</div>
       </div>
       
@@ -285,7 +270,7 @@
     <div id="editModal" class="modal">
       <div class="modal-content">
         <h2>Edit Sorted List</h2>
-        <!-- Added instruction for dragging -->
+        <!-- Instruction for dragging -->
         <p style="text-align:center; font-style: italic;">Drag and drop to adjust your list</p>
         <div id="editModalContent"></div>
         <div style="text-align: center;">
@@ -313,7 +298,8 @@ from js import document, console
 from pyodide.http import pyfetch
 from pyodide.ffi import create_proxy
 
-ANILIST_API_URL = "https:graphql.anilist.co"
+# Use the absolute URL with a trailing slash so it is not misinterpreted as relative
+ANILIST_API_URL = "https://graphql.anilist.co/"
 
 class AniMangaRanker:
     def __init__(self):
@@ -365,7 +351,8 @@ class AniMangaRanker:
         if not statuses:
             self.set_text("progressLabel", "No list statuses selected!")
             return []
-        results = []
+        # Initialize new_results before processing statuses.
+        new_results = []
         seen = set()
         for status in statuses:
             query = self.build_query(media_type, status)
@@ -373,7 +360,7 @@ class AniMangaRanker:
             payload = {"query": query, "variables": variables}
             try:
                 response = await pyfetch(
-                    url=ANILIST_API_URL,
+                    url=ANILIST_API_URL,  # Notice the trailing slash
                     method="POST",
                     headers={"Content-Type": "application/json"},
                     body=json.dumps(payload)
@@ -386,6 +373,7 @@ class AniMangaRanker:
                 console.log("Error fetching " + media_type + " list for " + username + ": " + str(e))
                 continue
             raw_lists = data.get("data", {}).get("MediaListCollection", {}).get("lists", [])
+            local_results = []
             for lst in raw_lists:
                 for entry in lst.get("entries", []):
                     media = entry.get("media")
@@ -394,17 +382,17 @@ class AniMangaRanker:
                         if mid in seen:
                             continue
                         seen.add(mid)
-                        title = (media.get("title", {}).get("english") or media.get("title", {}).get("romaji") or "Unknown")
+                        title = (media.get("title", {}).get("english") or 
+                                 media.get("title", {}).get("romaji") or "Unknown")
                         cover = media.get("coverImage", {}).get("large", "")
                         season = media.get("season")
                         seasonYear = media.get("seasonYear")
                         score = entry.get("score", 0)
-                        results.append((mid, title, cover, score, season, seasonYear))
-            results.sort(key=lambda x: x[3], reverse=True)
-            new_results = []
+                        local_results.append((mid, title, cover, score, season, seasonYear))
+            local_results.sort(key=lambda x: x[3], reverse=True)
             current_score = None
             group = []
-            for item in results:
+            for item in local_results:
                 score = item[3]
                 if current_score is None or score == current_score:
                     group.append(item)
@@ -440,7 +428,8 @@ class AniMangaRanker:
             self.initial_estimated_midpoint = candidate
         else:
             self.initial_estimated_midpoint = (self.low_index + self.high_index) // 2
-        self.comparisons_remaining = ( math.ceil(math.log2(self.high_index - self.low_index + 1)) if (self.high_index - self.low_index + 1) > 0 else 0 )
+        self.comparisons_remaining = (math.ceil(math.log2(self.high_index - self.low_index + 1))
+                                      if (self.high_index - self.low_index + 1) > 0 else 0)
         self.unsorted_comparisons_remaining = self.estimated_unsorted_comparisons_remaining()
         self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
 
@@ -456,7 +445,9 @@ class AniMangaRanker:
         inserted = len(self.sorted_list)
         remaining_items = total - inserted
         progress_percentage = (inserted / total * 100) if total > 0 else 0
-        self.set_text("progressLabel", "Inserted " + str(inserted) + " of " + str(total) + ". Remaining: " + str(remaining_items) + " items ({:.1f}% complete).".format(progress_percentage))
+        self.set_text("progressLabel",
+                      "Inserted " + str(inserted) + " of " + str(total) + ". Remaining: " + 
+                      str(remaining_items) + " items ({:.1f}% complete).".format(progress_percentage))
 
     def update_comparison_gui(self):
         try:
@@ -476,7 +467,7 @@ class AniMangaRanker:
             if mid < 0 or mid >= len(self.sorted_list):
                 mid = 0
             candidate = self.sorted_list[mid]
-            # Remove "Compare:" prefix; format as a centered single line:
+            # Format instruction as a single centered line (without a "Compare:" prefix)
             self.set_text("instructionLabel", new_item[1] + " vs " + candidate[1])
             btn1 = document.getElementById("compButton1")
             btn2 = document.getElementById("compButton2")
@@ -496,7 +487,8 @@ class AniMangaRanker:
         try:
             if self.unsorted_comparisons_remaining > 0:
                 self.unsorted_comparisons_remaining -= 1
-                self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
+                self.set_text("unsortedComparisonsLabel",
+                              "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
             mid = self.calculate_mid()
             if self.low_index >= self.high_index:
                 if new_item_wins and self.initial_low_bound is not None and self.initial_low_bound != 0 and self.low_index == self.initial_low_bound:
@@ -681,7 +673,7 @@ class AniMangaRanker:
             for idx, item in enumerate(self.sorted_list):
                 li = document.createElement("li")
                 li.innerText = item[1]
-                li.className = "drag-item";  # Add the drag-item class to style the item
+                li.className = "drag-item"  # apply the drag-item styling
                 li.setAttribute("draggable", "true")
                 li.addEventListener("dragstart", create_proxy(lambda e, i=idx: self.on_drag_start(e, i)))
                 li.addEventListener("dragover", create_proxy(self.on_drag_over))
