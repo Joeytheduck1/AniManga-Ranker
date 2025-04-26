@@ -313,7 +313,7 @@ from js import document, console
 from pyodide.http import pyfetch
 from pyodide.ffi import create_proxy
 
-ANILIST_API_URL = "https://graphql.anilist.co"
+ANILIST_API_URL = "https:graphql.anilist.co"
 
 class AniMangaRanker:
     def __init__(self):
@@ -681,7 +681,7 @@ class AniMangaRanker:
             for idx, item in enumerate(self.sorted_list):
                 li = document.createElement("li")
                 li.innerText = item[1]
-                li.className = "drag-item";  // Add the drag-item class to style the item
+                li.className = "drag-item";  # Add the drag-item class to style the item
                 li.setAttribute("draggable", "true")
                 li.addEventListener("dragstart", create_proxy(lambda e, i=idx: self.on_drag_start(e, i)))
                 li.addEventListener("dragover", create_proxy(self.on_drag_over))
