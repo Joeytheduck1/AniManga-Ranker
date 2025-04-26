@@ -572,6 +572,7 @@ class AniMangaRanker:
                     self.high_index = self.initial_low_bound
                     self.low_index = 0
                     self.update_comparison_gui(self.calculate_mid())
+                    self.save_progress()  # Save here before return.
                     return
                 else:
                     insertion_index = self.low_index if new_item_wins else self.low_index + 1
@@ -582,6 +583,7 @@ class AniMangaRanker:
                         self.update_comparison_gui(self.calculate_mid())
                     else:
                         self.show_final_results()
+                    self.save_progress()  # Save here before return.
                     return
             if new_item_wins:
                 self.high_index = mid - 1
@@ -596,8 +598,11 @@ class AniMangaRanker:
                     self.update_comparison_gui()
                 else:
                     self.show_final_results()
+                self.save_progress()  # Save after updating state.
+                return
             else:
                 self.update_comparison_gui(self.calculate_mid())
+            self.save_progress()  # Fallback save at the end if no early return.
         except Exception as e:
             console.log("Error in handle_comparison: " + str(e))
 
@@ -640,6 +645,7 @@ class AniMangaRanker:
             # Update the unsorted comparisons label immediately:
             self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
             self.update_comparison_gui()
+            self.save_progress()  # Save state here!
         except Exception as e:
             console.log("Error in start_fetch: " + str(e))
 
@@ -721,6 +727,7 @@ class AniMangaRanker:
             # Update the unsorted comparisons label after filters change:
             self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
             self.update_comparison_gui()
+            self.save_progress()  # Save state after filter changes.
         except Exception as e:
             console.log("Error in filter_changed: " + str(e))
 
@@ -769,6 +776,7 @@ class AniMangaRanker:
             modal = document.getElementById("editModal")
             modal.style.display = "none"
             self.set_text("progressLabel", "Edited sorted list saved.")
+            self.save_progress()  # Save the new sorted order.
         except Exception as e:
             console.log("Error in save_edited_list: " + str(e))
 
@@ -782,6 +790,7 @@ class AniMangaRanker:
     def finish_early(self):
         try:
             self.show_final_results()
+            self.save_progress()  # Save the finished state.
         except Exception as e:
             console.log("Error in finish_early: " + str(e))
 
@@ -812,9 +821,100 @@ class AniMangaRanker:
             debugInfo.innerText = info
         except Exception as e:
             console.log("Error updating debug info: " + str(e))
+    def save_progress(self):
+        """
+        Saves the complete state of the application to localStorage.
+        This includes ranking variables and UI element values so that the
+        session can be fully restored later.
+        """
+        state = {
+            "all_items": self.all_items,
+            "unsorted_list": self.unsorted_list,
+            "sorted_list": self.sorted_list,
+            "current_index": self.current_index,
+            "low_index": self.low_index,
+            "high_index": self.high_index,
+            "offset": self.offset,
+            "initial_estimated_midpoint": self.initial_estimated_midpoint,
+            "initial_low_bound": self.initial_low_bound,
+            "unsorted_comparisons_remaining": self.unsorted_comparisons_remaining,
+            # Save UI states:
+            "username": document.getElementById("usernameInput").value,
+            "completedCheckbox": document.getElementById("completedCheckbox").checked,
+            "watchingCheckbox": document.getElementById("watchingCheckbox").checked,
+            "pausedCheckbox": document.getElementById("pausedCheckbox").checked,
+            "droppedCheckbox": document.getElementById("droppedCheckbox").checked,
+            "includeImagesCheckbox": document.getElementById("includeImagesCheckbox").checked,
+            "seasonDropdown": document.getElementById("seasonDropdown").value,
+            "yearDropdown": document.getElementById("yearDropdown").value,
+        }
+        from js import localStorage, console
+        localStorage.setItem("aniRankerState", json.dumps(state))
+        console.log("Progress saved.")
+
+      def load_progress(self):
+        """
+        Loads saved state from localStorage and updates the internal variables
+        and UI elements so that the session appears exactly as it was left.
+        """
+        from js import localStorage, console
+        state_json = localStorage.getItem("aniRankerState")
+        if state_json:
+            try:
+                state = json.loads(state_json)
+                self.all_items = state.get("all_items", [])
+                self.unsorted_list = state.get("unsorted_list", [])
+                self.sorted_list = state.get("sorted_list", [])
+                self.current_index = state.get("current_index", 0)
+                self.low_index = state.get("low_index", 0)
+                self.high_index = state.get("high_index", 0)
+                self.offset = state.get("offset", 15)
+                self.initial_estimated_midpoint = state.get("initial_estimated_midpoint", None)
+                self.initial_low_bound = state.get("initial_low_bound", None)
+                self.unsorted_comparisons_remaining = state.get("unsorted_comparisons_remaining", 0)
+                # Restore UI elements:
+                document.getElementById("usernameInput").value = state.get("username", "")
+                document.getElementById("completedCheckbox").checked = state.get("completedCheckbox", True)
+                document.getElementById("watchingCheckbox").checked = state.get("watchingCheckbox", False)
+                document.getElementById("pausedCheckbox").checked = state.get("pausedCheckbox", False)
+                document.getElementById("droppedCheckbox").checked = state.get("droppedCheckbox", False)
+                document.getElementById("includeImagesCheckbox").checked = state.get("includeImagesCheckbox", False)
+                document.getElementById("seasonDropdown").value = state.get("seasonDropdown", "All")
+                document.getElementById("yearDropdown").value = state.get("yearDropdown", "All")
+                
+                # Update UI progress and comparison displays:
+                self.update_progress()
+                self.update_comparison_gui()
+                console.log("Progress loaded.")
+            except Exception as e:
+                console.log("Error loading progress: " + str(e))
 
 # Create the global instance of ranker
 ranker = AniMangaRanker()
+
+from js import document, localStorage, console
+from pyodide.ffi import create_proxy
+
+def show_restore_modal():
+    if localStorage.getItem("aniRankerState"):
+        document.getElementById("restoreModal").style.display = "block"
+
+def continue_session(e):
+    document.getElementById("restoreModal").style.display = "none"
+    ranker.load_progress()  # Load the saved progress.
+    console.log("Resuming saved session.")
+
+def start_new_session(e):
+    document.getElementById("restoreModal").style.display = "none"
+    localStorage.removeItem("aniRankerState")
+    console.log("Starting a new session.")
+
+# Attach event listeners to modal buttons.
+document.getElementById("continueSession").addEventListener("click", create_proxy(continue_session))
+document.getElementById("startNewSession").addEventListener("click", create_proxy(start_new_session))
+
+# On page load, show the restore modal if saved progress exists.
+show_restore_modal()
 
 # ---------- Bind Event Listeners using create_proxy ----------
 fetchAnimeProxy = create_proxy(lambda e: __import__('asyncio').create_task(ranker.start_fetch("ANIME")))
@@ -885,5 +985,14 @@ document.getElementById("closeFinalButton").addEventListener("click", closeFinal
       window.addEventListener("load", adjustComparisonPanelHeight);
       window.addEventListener("resize", adjustComparisonPanelHeight);
     </script>
+    <!-- Restore Session Modal -->
+    <div id="restoreModal" class="modal" style="display: none;">
+      <div class="modal-content" style="padding: 20px; background: #333; color: #fff; border-radius: 5px;">
+        <h2 style="margin-top: 0;">Restore Session?</h2>
+        <p>Saved progress was detected. Would you like to continue where you left off or start a new session?</p>
+        <button id="continueSession">Continue Previous Session</button>
+        <button id="startNewSession">Start New Session</button>
+      </div>
+    </div>
   </body>
 </html>
