@@ -8,13 +8,15 @@
     <link rel="stylesheet" href="https://pyscript.net/snapshots/2024.9.2/core.css" />
     <script type="module" src="https://pyscript.net/snapshots/2024.9.2/core.js"></script>
     <style>
-      /* Ensure the HTML and body fill the viewport */
+      /* Restore original dark color scheme */
       html, body {
         height: 100%;
         margin: 0;
         padding: 0;
+        background-color: #2e2e2e;
+        color: #f8f8f2;
       }
-      /* Container uses a flex column layout to allow bottom elements to grow */
+      /* Container uses a flex column layout */
       .container {
         display: flex;
         flex-direction: column;
@@ -26,17 +28,19 @@
         box-sizing: border-box;
         font-family: Arial, sans-serif;
       }
-      /* Updated heading styling: less vertical space */
+      /* Header: use dark background with contrasting title color */
       header {
         flex: 0 0 auto;
         text-align: center;
         padding: 10px 20px;
-        background-color: #f0f0f0;
+        background-color: #2e2e2e;
         margin-bottom: 10px;
+        border-bottom: 1px solid #444;
       }
       header h1 {
         margin: 0;
         font-size: 1.8em;
+        color: #f8f8f2;
       }
       /* Control panel remains at the top with auto height */
       .control-panel {
@@ -47,7 +51,7 @@
         text-align: center;
         margin-bottom: 10px;
       }
-      /* Row for main buttons and dropdowns. */
+      /* Row for main buttons and dropdowns */
       .controls-row {
         display: flex;
         flex-wrap: wrap;
@@ -86,15 +90,21 @@
       #unsortedComparisonsLabel {
         font-size: 16px;
       }
+      /* Instruction text: centered and on one line (no "Compare:" prefix) */
+      #instructionLabel {
+        text-align: center;
+        font-size: 1.2em;
+        margin-top: 10px;
+      }
       /* The comparison panel fills the remaining vertical space */
       .comparison-panel {
-        flex: 1; /* expand to fill leftover vertical space */
+        flex: 1;
         display: flex;
         gap: 10px;
         margin-top: 20px;
-        align-items: stretch; /* ensure children stretch vertically */
+        align-items: stretch;
       }
-      /* Comparison buttons: fill available space and center content */
+      /* Comparison buttons fill available space and center content */
       .comparison-button {
         flex: 1;
         padding: 20px;
@@ -111,7 +121,7 @@
       .comparison-button:hover {
         background-color: #666;
       }
-      /* Button styling for all generic buttons */
+      /* Generic button styling */
       button {
         background-color: #555;
         color: white;
@@ -181,7 +191,7 @@
     <div id="debugInfo"></div>
     
     <div class="container">
-      <!-- Compact Heading -->
+      <!-- Header -->
       <header>
         <h1>AniManga Ranker</h1>
       </header>
@@ -212,7 +222,7 @@
           </div>
         </div>
         
-        <!-- Row containing the four main buttons and dropdowns -->
+        <!-- Row containing the main buttons and dropdowns -->
         <div class="controls-row">
           <div class="btn-group">
             <button id="fetchAnimeButton">Fetch Anime List</button>
@@ -234,7 +244,7 @@
           <div id="unsortedComparisonsLabel">Estimated Total Comparisons Left: 0</div>
         </div>
         
-        <!-- Instruction text -->
+        <!-- Instruction text (now a single centered line without “Compare:”) -->
         <div id="instructionLabel">Comparison instructions will appear here</div>
       </div>
       
@@ -438,7 +448,8 @@ class AniMangaRanker:
             if mid < 0 or mid >= len(self.sorted_list):
                 mid = 0
             candidate = self.sorted_list[mid]
-            self.set_text("instructionLabel", "Compare:\n\n" + new_item[1] + "\nvs.\n" + candidate[1])
+            # Remove the "Compare:" text and format as a single centered line:
+            self.set_text("instructionLabel", new_item[1] + " vs " + candidate[1])
             btn1 = document.getElementById("compButton1")
             btn2 = document.getElementById("compButton2")
             include_images = self.is_checked("includeImagesCheckbox")
