@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AniManga Ranker – PyScript Edition</title>
+    <title>AniManga Ranker</title>
     <!-- Using a specific version of PyScript (2024.9.2) -->
     <link rel="stylesheet" href="https://pyscript.net/snapshots/2024.9.2/core.css" />
     <script type="module" src="https://pyscript.net/snapshots/2024.9.2/core.js"></script>
@@ -172,7 +172,7 @@
         <button class="comparison-button" id="compButton2">Candidate wins</button>
       </div>
     </div>
-    <!-- Edit Sorted List Modal (uses drag-and-drop) -->
+    <!-- Edit Sorted List Modal (drag-and-drop enabled) -->
     <div id="editModal" class="modal">
       <div class="modal-content">
         <h2>Edit Sorted List</h2>
@@ -467,7 +467,7 @@ class AniMangaRanker:
 
     def update_dropdowns(self):
         try:
-            # Get current dropdown selections if already set; default to "All"
+            # Preserve current selection (default to "All")
             current_year = document.getElementById("yearDropdown").value or "All"
             current_season = document.getElementById("seasonDropdown").value or "All"
 
@@ -494,6 +494,8 @@ class AniMangaRanker:
                     opt.value = s
                     opt.text = f"{s} ({count})"
                     season_dropdown.appendChild(opt)
+            // Reapply the previously selected season if possible
+            season_dropdown.value = current_season;
 
             # Update Year dropdown counts based on current season filter
             year_counts = {}
@@ -516,14 +518,15 @@ class AniMangaRanker:
                 opt.value = year
                 opt.text = f"{year} ({year_counts[year]})"
                 year_dropdown.appendChild(opt)
+            // Reapply the previously selected year if possible
+            year_dropdown.value = current_year;
         except Exception as e:
             console.log("Error in update_dropdowns: " + str(e))
 
     def filter_changed(self, e=None):
         try:
-            # Update dropdown counts first
             self.update_dropdowns()
-            # Then, filter the data based on current selections
+            # Then filter the data based on current selections
             season = document.getElementById("seasonDropdown").value
             year = document.getElementById("yearDropdown").value
             filtered = []
@@ -553,7 +556,7 @@ class AniMangaRanker:
         except Exception as e:
             console.log("Error in edit_sorted_list: " + str(e))
 
-    # New drag-and-drop methods for edit modal
+    # Drag-and-drop for edit modal
     def on_drag_start(self, e, index):
         e.dataTransfer.setData("text/plain", str(index))
 
@@ -665,7 +668,7 @@ document.getElementById("seasonDropdown").addEventListener("change", seasonChang
 document.getElementById("yearDropdown").addEventListener("change", yearChangeProxy)
 document.getElementById("closeFinalButton").addEventListener("click", closeFinalProxy)
     </script>
-    <!-- Toggle debug info visibility on clicking the debug toggle button -->
+    <!-- Toggle debug info visibility -->
     <script>
       document.getElementById("debugToggle").addEventListener("click", function(){
           var dbg = document.getElementById("debugInfo");
