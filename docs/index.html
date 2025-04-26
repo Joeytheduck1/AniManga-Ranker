@@ -565,6 +565,8 @@ class AniMangaRanker:
             self.current_index = 1
             self.reset_binary_range()
             self.update_progress()
+            # Update the unsorted comparisons label immediately:
+            self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
             self.update_comparison_gui()
         except Exception as e:
             console.log("Error in start_fetch: " + str(e))
@@ -644,6 +646,8 @@ class AniMangaRanker:
             self.current_index = 1
             self.reset_binary_range()
             self.update_progress()
+            # Update the unsorted comparisons label after filters change:
+            self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
             self.update_comparison_gui()
         except Exception as e:
             console.log("Error in filter_changed: " + str(e))
