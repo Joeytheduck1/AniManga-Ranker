@@ -245,7 +245,7 @@
     <div class="container">
       <!-- Header -->
       <header>
-        <h1>AniManga Ranker</h1>
+        <h1>AniManga </h1>
       </header>
       
       <div class="control-panel">
@@ -940,8 +940,8 @@ seasonChangeProxy = create_proxy(lambda e: ranker.filter_changed())
 yearChangeProxy = create_proxy(lambda e: ranker.filter_changed())
 closeFinalProxy = create_proxy(lambda e: setattr(document.getElementById("finalModal").style, "display", "none"))
 
-document.getElementById("fetchAnimeButton").addEventListener("click", fetchAnimeProxy)
-document.getElementById("fetchMangaButton").addEventListener("click", fetchMangaProxy)
+document.getElementById("fetchAnimeButton").addEventListener("click", create_proxy(ranker.start_fetch))
+document.getElementById("fetchMangaButton").addEventListener("click", create_proxy(ranker.start_fetch))
 document.getElementById("compButton1").addEventListener("click", compButton1Proxy)
 document.getElementById("compButton2").addEventListener("click", compButton2Proxy)
 document.getElementById("editSortedButton").addEventListener("click", editSortedProxy)
@@ -951,6 +951,11 @@ document.getElementById("closeEditButton").addEventListener("click", closeEditPr
 document.getElementById("seasonDropdown").addEventListener("change", seasonChangeProxy)
 document.getElementById("yearDropdown").addEventListener("change", yearChangeProxy)
 document.getElementById("closeFinalButton").addEventListener("click", closeFinalProxy)
+
+seasonChangeProxy = create_proxy(lambda e: ranker.filter_changed())
+yearChangeProxy = create_proxy(lambda e: ranker.filter_changed())
+document.getElementById("seasonDropdown").addEventListener("change", seasonChangeProxy)
+document.getElementById("yearDropdown").addEventListener("change", yearChangeProxy)
     </script>
     
     <!-- Toggle debug info visibility -->
