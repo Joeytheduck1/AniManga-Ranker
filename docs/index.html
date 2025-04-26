@@ -121,6 +121,7 @@
         flex-direction: column;
         justify-content: flex-start;
         align-items: center;
+        overflow: hidden;
       }
       .comparison-button:hover {
         background-color: #666;
@@ -144,8 +145,8 @@
       }
       .comparison-button .image-container img {
         /* Allow width and height to adjust based on container’s available space */
-        width: auto;
-        height: 10%;
+        width: 100%;
+        height: 100%;
         object-fit: contain;
         display: block;
         /* Remove margins if centering is handled by the container */
@@ -847,6 +848,38 @@ document.getElementById("closeFinalButton").addEventListener("click", closeFinal
           dbg.style.display = "none";
         }
       });
+    </script>
+    <script>
+      function adjustComparisonPanelHeight() {
+        // Select key elements
+        const header = document.querySelector('header');
+        const controlPanel = document.querySelector('.control-panel');
+        const comparisonPanel = document.querySelector('.comparison-panel');
+    
+        // Get the heights:
+        const headerHeight = header ? header.offsetHeight : 0;
+        const controlPanelHeight = controlPanel ? controlPanel.offsetHeight : 0;
+        
+        // .container has 20px top and 20px bottom padding from "padding: 20px 0;"
+        const containerPadding = 40; // Total vertical padding from .container
+    
+        // Add extra space contributed by margins 
+        // (e.g. header has margin-bottom: 10px and control panel may have a margin-bottom)
+        const extraMargins = 20; // You can adjust this value to fine-tune.
+    
+        // Compute space already used by non-button content.
+        const usedHeight = headerHeight + controlPanelHeight + containerPadding + extraMargins;
+    
+        // Calculate available height for the comparison panel.
+        const availableHeight = window.innerHeight - usedHeight;
+    
+        // Set the height of the comparison panel to exactly this value.
+        comparisonPanel.style.height = availableHeight + "px";
+      }
+    
+      // Run the function on load and whenever the window is resized
+      window.addEventListener("load", adjustComparisonPanelHeight);
+      window.addEventListener("resize", adjustComparisonPanelHeight);
     </script>
   </body>
 </html>
