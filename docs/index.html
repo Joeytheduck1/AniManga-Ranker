@@ -396,31 +396,31 @@ class AniMangaRanker:
         return new_results
 
         async def start_fetch(self, media_type):
-        # Retrieve the username from input
-        username = self.get_value("usernameInput")
-        if not username:
-            self.set_text("progressLabel", "Please enter a username.")
-            return
-
-        # Notify user that fetching is in progress
-        self.set_text("progressLabel", f"Fetching {media_type} list...")
-
-        # Fetch the list from the API
-        items = await self.fetch_user_list(username, media_type)
-        if not items:
-            self.set_text("progressLabel", "No items were fetched.")
-            return
-
-        # Initialize the ranking lists
-        self.all_items = items
-        self.unsorted_list = list(items)
-        self.sorted_list = []
-        self.current_index = 0
-
-        # Update progress and start ranking
-        self.set_text("progressLabel", f"Fetched {len(self.unsorted_list)} items. Starting ranking...")
-        self.reset_binary_range()
-        await self.update_comparison_gui()
+            # Retrieve the username from input
+            username = self.get_value("usernameInput")
+            if not username:
+                self.set_text("progressLabel", "Please enter a username.")
+                return
+    
+            # Notify user that fetching is in progress
+            self.set_text("progressLabel", f"Fetching {media_type} list...")
+    
+            # Fetch the list from the API
+            items = await self.fetch_user_list(username, media_type)
+            if not items:
+                self.set_text("progressLabel", "No items were fetched.")
+                return
+    
+            # Initialize the ranking lists
+            self.all_items = items
+            self.unsorted_list = list(items)
+            self.sorted_list = []
+            self.current_index = 0
+    
+            # Update progress and start ranking
+            self.set_text("progressLabel", f"Fetched {len(self.unsorted_list)} items. Starting ranking...")
+            self.reset_binary_range()
+            await self.update_comparison_gui()
 
       
     # ---------- Tournament and Comparison Functions ----------
