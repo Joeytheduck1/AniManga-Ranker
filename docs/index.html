@@ -125,6 +125,11 @@
       .comparison-button:hover {
         background-color: #666;
       }
+      .comparison-button.no-image {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
       .comparison-button .title {
         flex: 0 0 auto;
         text-align: center;
@@ -142,6 +147,7 @@
         max-width: 100%;
         max-height: 100%;
         object-fit: contain;
+        max-width: none;
         display: block;
         /* Remove margins if centering is handled by the container */
       }
@@ -541,6 +547,8 @@ class AniMangaRanker:
                     f'</div>'
                 )
             else:
+                btn1.classList.add("no-image");
+                btn2.classList.add("no-image");
                 btn1.innerText = new_item[1]
                 btn2.innerText = candidate[1]
             self.update_progress()
