@@ -89,7 +89,7 @@
         <!-- Username and status checkboxes -->
         <div>
           <label for="usernameInput">Enter AniList Username:</label>
-          <input type="text" id="usernameInput" placeholder="Username" />
+          <input type="text" id="usernameInput" placeholder="Username" title="Enter your AniList username" />
         </div>
         <div>
           <label>
@@ -163,7 +163,8 @@
       </div>
     </div>
 
-    <py-script>
+    <!-- Updated PyScript code using <script type="py"> -->
+    <script type="py">
 import math, random, json
 from js import document, console
 from pyodide.http import pyfetch  # Use pyfetch for reliable async HTTP calls
@@ -235,7 +236,7 @@ class AniMangaRanker:
                     body=json.dumps(payload)
                 )
                 if not response.ok:
-                    console.log("Error fetching data: " + response.status)
+                    console.log("Error fetching data: " + str(response.status))
                     continue
                 data = await response.json()
             except Exception as e:
@@ -250,10 +251,8 @@ class AniMangaRanker:
                         if mid in seen:
                             continue
                         seen.add(mid)
-                        title = (
-                            media.get("title", {}).get("english") or 
-                            media.get("title", {}).get("romaji") or "Unknown"
-                        )
+                        title = (media.get("title", {}).get("english") or 
+                                 media.get("title", {}).get("romaji") or "Unknown")
                         cover = media.get("coverImage", {}).get("large", "")
                         season = media.get("season")
                         seasonYear = media.get("seasonYear")
@@ -337,8 +336,8 @@ class AniMangaRanker:
         btn2 = document.getElementById("compButton2")
         include_images = self.is_checked("includeImagesCheckbox")
         if include_images and new_item[2] and candidate[2]:
-            btn1.innerHTML = '<img src="' + new_item[2] + '" style="max-width:200px;height:auto;"><br>' + new_item[1]
-            btn2.innerHTML = '<img src="' + candidate[2] + '" style="max-width:200px;height:auto;"><br>' + candidate[1]
+            btn1.innerHTML = f'<img src="{new_item[2]}" alt="Cover for {new_item[1]}" style="max-width:200px;height:auto;"><br>{new_item[1]}'
+            btn2.innerHTML = f'<img src="{candidate[2]}" alt="Cover for {candidate[1]}" style="max-width:200px;height:auto;"><br>{candidate[1]}'
         else:
             btn1.innerText = new_item[1]
             btn2.innerText = candidate[1]
@@ -434,7 +433,7 @@ class AniMangaRanker:
             if count > 0:
                 opt = document.createElement("option")
                 opt.value = s
-                opt.text = s + " (" + str(count) + ")"
+                opt.text = f"{s} ({count})"
                 season_dropdown.appendChild(opt)
         # Update Year dropdown
         year_counts = {}
@@ -451,7 +450,7 @@ class AniMangaRanker:
         for year in sorted(year_counts.keys()):
             opt = document.createElement("option")
             opt.value = year
-            opt.text = year + " (" + str(year_counts[year]) + ")"
+            opt.text = f"{year} ({year_counts[year]})"
             year_dropdown.appendChild(opt)
 
     def filter_changed(self, event=None):
@@ -561,7 +560,7 @@ class AniMangaRanker:
         content.innerText = info
         debug_modal.style.display = "block"
 
-# Create a global instance
+# Create a global instance of ranker
 ranker = AniMangaRanker()
 
 # ---------- Bind Event Listeners ----------
@@ -587,6 +586,6 @@ document.getElementById("debugButton").addEventListener("click", lambda e: ranke
 document.getElementById("saveEditButton").addEventListener("click", lambda e: ranker.save_edited_list())
 document.getElementById("closeEditButton").addEventListener("click", lambda e: ranker.close_edit_modal())
 document.getElementById("closeDebugButton").addEventListener("click", close_debug)
-    </py-script>
+    </script>
   </body>
 </html>
