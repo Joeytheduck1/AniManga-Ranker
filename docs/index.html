@@ -116,7 +116,6 @@
         <!-- Filter dropdowns -->
         <div id="filter-panel">
           <label for="seasonDropdown">Season:</label>
-          <!-- When a filter changes, we call the Python function -->
           <select id="seasonDropdown" onchange="pyodide.runPython('ranker.filter_changed()');"></select>
           <label for="yearDropdown">Year:</label>
           <select id="yearDropdown" onchange="pyodide.runPython('ranker.filter_changed()');"></select>
@@ -163,11 +162,12 @@
       </div>
     </div>
 
-    <!-- Updated PyScript code using <script type="py"> -->
+    <!-- PyScript code using <script type="py"> and create_proxy for event callbacks -->
     <script type="py">
 import math, random, json
 from js import document, console
-from pyodide.http import pyfetch  # Use pyfetch for reliable async HTTP calls
+from pyodide.http import pyfetch
+from pyodide.ffi import create_proxy
 
 ANILIST_API_URL = "https://graphql.anilist.co"
 
@@ -198,7 +198,6 @@ class AniMangaRanker:
 
     # ---------- AniList API Functions ----------
     def build_query(self, media_type, status):
-        # Build the GraphQL query string
         return (
             "query ($name: String) { "
             "MediaListCollection(userName: $name, type: " + media_type + ", status: " + status + ") { "
@@ -489,21 +488,19 @@ class AniMangaRanker:
             li = document.createElement("li")
             li.style.marginBottom = "8px"
             li.innerText = item[1] + " "
-            # Up button
             upBtn = document.createElement("button")
             upBtn.innerText = "↑"
             if idx == 0:
                 upBtn.disabled = True
             else:
-                upBtn.onclick = lambda ev, i=idx: self.move_item_up(i)
+                upBtn.onclick = create_proxy(lambda ev, i=idx: self.move_item_up(i))
             li.appendChild(upBtn)
-            # Down button
             downBtn = document.createElement("button")
             downBtn.innerText = "↓"
             if idx == len(self.sorted_list) - 1:
                 downBtn.disabled = True
             else:
-                downBtn.onclick = lambda ev, i=idx: self.move_item_down(i)
+                downBtn.onclick = create_proxy(lambda ev, i=idx: self.move_item_down(i))
             li.appendChild(downBtn)
             ol.appendChild(li)
         content.appendChild(ol)
@@ -563,29 +560,30 @@ class AniMangaRanker:
 # Create a global instance of ranker
 ranker = AniMangaRanker()
 
-# ---------- Bind Event Listeners ----------
-def fetch_anime(e):
-    import asyncio
-    asyncio.create_task(ranker.start_fetch("ANIME"))
+# ---------- Bind Event Listeners using create_proxy to keep callbacks alive ----------
+fetchAnimeProxy = create_proxy(lambda e: __import__('asyncio').create_task(ranker.start_fetch("ANIME")))
+fetchMangaProxy = create_proxy(lambda e: __import__('asyncio').create_task(ranker.start_fetch("MANGA")))
+compButton1Proxy = create_proxy(ranker.handle_new_win)
+compButton2Proxy = create_proxy(ranker.handle_candidate_win)
+editSortedProxy = create_proxy(lambda e: ranker.edit_sorted_list())
+finishEarlyProxy = create_proxy(lambda e: ranker.finish_early())
+resetProxy = create_proxy(lambda e: ranker.reset_tournament())
+debugProxy = create_proxy(lambda e: ranker.show_debug_info())
+saveEditProxy = create_proxy(lambda e: ranker.save_edited_list())
+closeEditProxy = create_proxy(lambda e: ranker.close_edit_modal())
+closeDebugProxy = create_proxy(lambda e: document.getElementById("debugModal").style.display = "none")
 
-def fetch_manga(e):
-    import asyncio
-    asyncio.create_task(ranker.start_fetch("MANGA"))
-
-def close_debug(e):
-    document.getElementById("debugModal").style.display = "none"
-
-document.getElementById("fetchAnimeButton").addEventListener("click", fetch_anime)
-document.getElementById("fetchMangaButton").addEventListener("click", fetch_manga)
-document.getElementById("compButton1").addEventListener("click", ranker.handle_new_win)
-document.getElementById("compButton2").addEventListener("click", ranker.handle_candidate_win)
-document.getElementById("editSortedButton").addEventListener("click", lambda e: ranker.edit_sorted_list())
-document.getElementById("finishEarlyButton").addEventListener("click", lambda e: ranker.finish_early())
-document.getElementById("resetButton").addEventListener("click", lambda e: ranker.reset_tournament())
-document.getElementById("debugButton").addEventListener("click", lambda e: ranker.show_debug_info())
-document.getElementById("saveEditButton").addEventListener("click", lambda e: ranker.save_edited_list())
-document.getElementById("closeEditButton").addEventListener("click", lambda e: ranker.close_edit_modal())
-document.getElementById("closeDebugButton").addEventListener("click", close_debug)
+document.getElementById("fetchAnimeButton").addEventListener("click", fetchAnimeProxy)
+document.getElementById("fetchMangaButton").addEventListener("click", fetchMangaProxy)
+document.getElementById("compButton1").addEventListener("click", compButton1Proxy)
+document.getElementById("compButton2").addEventListener("click", compButton2Proxy)
+document.getElementById("editSortedButton").addEventListener("click", editSortedProxy)
+document.getElementById("finishEarlyButton").addEventListener("click", finishEarlyProxy)
+document.getElementById("resetButton").addEventListener("click", resetProxy)
+document.getElementById("debugButton").addEventListener("click", debugProxy)
+document.getElementById("saveEditButton").addEventListener("click", saveEditProxy)
+document.getElementById("closeEditButton").addEventListener("click", closeEditProxy)
+document.getElementById("closeDebugButton").addEventListener("click", closeDebugProxy)
     </script>
   </body>
 </html>
