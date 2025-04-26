@@ -166,6 +166,19 @@
         margin: 5px;
         font-size: 16px;
       }
+      /* New styling for drag items inside the edit modal */
+      .drag-item {
+        padding: 8px;
+        margin: 4px 0;
+        border: 1px solid #666;
+        border-radius: 4px;
+        background-color: #444;
+        cursor: move;
+        transition: background-color 0.3s;
+      }
+      .drag-item:hover {
+        background-color: #555;
+      }
       /* Debug info panel and toggle button */
       #debugInfo {
         display: none;
@@ -272,6 +285,8 @@
     <div id="editModal" class="modal">
       <div class="modal-content">
         <h2>Edit Sorted List</h2>
+        <!-- Added instruction for dragging -->
+        <p style="text-align:center; font-style: italic;">Drag and drop to adjust your list</p>
         <div id="editModalContent"></div>
         <div style="text-align: center;">
           <button id="saveEditButton">Save</button>
@@ -666,8 +681,8 @@ class AniMangaRanker:
             for idx, item in enumerate(self.sorted_list):
                 li = document.createElement("li")
                 li.innerText = item[1]
+                li.className = "drag-item";  // Add the drag-item class to style the item
                 li.setAttribute("draggable", "true")
-                li.style.cursor = "move"
                 li.addEventListener("dragstart", create_proxy(lambda e, i=idx: self.on_drag_start(e, i)))
                 li.addEventListener("dragover", create_proxy(self.on_drag_over))
                 li.addEventListener("drop", create_proxy(lambda e, i=idx: self.on_drop(e, i)))
