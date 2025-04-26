@@ -852,42 +852,42 @@ class AniMangaRanker:
         localStorage.setItem("aniRankerState", json.dumps(state))
         console.log("Progress saved.")
 
-      def load_progress(self):
-        """
-        Loads saved state from localStorage and updates the internal variables
-        and UI elements so that the session appears exactly as it was left.
-        """
-        from js import localStorage, console
-        state_json = localStorage.getItem("aniRankerState")
-        if state_json:
-            try:
-                state = json.loads(state_json)
-                self.all_items = state.get("all_items", [])
-                self.unsorted_list = state.get("unsorted_list", [])
-                self.sorted_list = state.get("sorted_list", [])
-                self.current_index = state.get("current_index", 0)
-                self.low_index = state.get("low_index", 0)
-                self.high_index = state.get("high_index", 0)
-                self.offset = state.get("offset", 15)
-                self.initial_estimated_midpoint = state.get("initial_estimated_midpoint", None)
-                self.initial_low_bound = state.get("initial_low_bound", None)
-                self.unsorted_comparisons_remaining = state.get("unsorted_comparisons_remaining", 0)
-                # Restore UI elements:
-                document.getElementById("usernameInput").value = state.get("username", "")
-                document.getElementById("completedCheckbox").checked = state.get("completedCheckbox", True)
-                document.getElementById("watchingCheckbox").checked = state.get("watchingCheckbox", False)
-                document.getElementById("pausedCheckbox").checked = state.get("pausedCheckbox", False)
-                document.getElementById("droppedCheckbox").checked = state.get("droppedCheckbox", False)
-                document.getElementById("includeImagesCheckbox").checked = state.get("includeImagesCheckbox", False)
-                document.getElementById("seasonDropdown").value = state.get("seasonDropdown", "All")
-                document.getElementById("yearDropdown").value = state.get("yearDropdown", "All")
-                
-                # Update UI progress and comparison displays:
-                self.update_progress()
-                self.update_comparison_gui()
-                console.log("Progress loaded.")
-            except Exception as e:
-                console.log("Error loading progress: " + str(e))
+    def load_progress(self):
+      """
+      Loads saved state from localStorage and updates the internal variables
+      and UI elements so that the session appears exactly as it was left.
+      """
+      from js import localStorage, console
+      state_json = localStorage.getItem("aniRankerState")
+      if state_json:
+          try:
+              state = json.loads(state_json)
+              self.all_items = state.get("all_items", [])
+              self.unsorted_list = state.get("unsorted_list", [])
+              self.sorted_list = state.get("sorted_list", [])
+              self.current_index = state.get("current_index", 0)
+              self.low_index = state.get("low_index", 0)
+              self.high_index = state.get("high_index", 0)
+              self.offset = state.get("offset", 15)
+              self.initial_estimated_midpoint = state.get("initial_estimated_midpoint", None)
+              self.initial_low_bound = state.get("initial_low_bound", None)
+              self.unsorted_comparisons_remaining = state.get("unsorted_comparisons_remaining", 0)
+              # Restore UI elements:
+              document.getElementById("usernameInput").value = state.get("username", "")
+              document.getElementById("completedCheckbox").checked = state.get("completedCheckbox", True)
+              document.getElementById("watchingCheckbox").checked = state.get("watchingCheckbox", False)
+              document.getElementById("pausedCheckbox").checked = state.get("pausedCheckbox", False)
+              document.getElementById("droppedCheckbox").checked = state.get("droppedCheckbox", False)
+              document.getElementById("includeImagesCheckbox").checked = state.get("includeImagesCheckbox", False)
+              document.getElementById("seasonDropdown").value = state.get("seasonDropdown", "All")
+              document.getElementById("yearDropdown").value = state.get("yearDropdown", "All")
+              
+              # Update UI progress and comparison displays:
+              self.update_progress()
+              self.update_comparison_gui()
+              console.log("Progress loaded.")
+          except Exception as e:
+              console.log("Error loading progress: " + str(e))
 
 # Create the global instance of ranker
 ranker = AniMangaRanker()
