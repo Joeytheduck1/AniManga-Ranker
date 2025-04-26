@@ -416,7 +416,7 @@ class AniMangaRanker:
             total += math.ceil(math.log2(sorted_count + k + 1))
         return total
 
-    def reset_binary_range(self):
+    def reset_binary_range(self) -> None:
         self.high_index = len(self.sorted_list) - 1
         if self.high_index >= 2 * self.offset:
             self.low_index = self.high_index - 2 * self.offset
@@ -428,17 +428,24 @@ class AniMangaRanker:
             self.initial_estimated_midpoint = candidate
         else:
             self.initial_estimated_midpoint = (self.low_index + self.high_index) // 2
-        self.comparisons_remaining = (math.ceil(math.log2(self.high_index - self.low_index + 1))
-                                      if (self.high_index - self.low_index + 1) > 0 else 0)
+        # Resetting of the current binary search estimates.
+        self.comparisons_remaining = math.ceil(math.log2(self.high_index - self.low_index + 1)) if (self.high_index - self.low_index + 1) > 0 else 0
+        # Update the unsorted comparisons estimate.
         self.unsorted_comparisons_remaining = self.estimated_unsorted_comparisons_remaining()
-        self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
-
-    def calculate_mid(self):
-        if self.initial_low_bound is not None and self.initial_low_bound >= 0 and self.low_index == 0:
+        # (Assumes these UI update methods exist in your code)
+        self.update_unsorted_comparisons_label()
+        self.update_debug_info()
+    
+    def calculate_mid(self) -> int:
+        # Uses the offset until the search is expanded; after expansion, uses the arithmetic midpoint.
+        if self.initial_low_bound is not None and self.initial_low_bound > 0 and self.low_index == 0:
             return (self.low_index + self.high_index) // 2
         else:
             candidate = self.low_index + self.offset
-            return candidate if candidate <= self.high_index else (self.low_index + self.high_index) // 2
+            if candidate <= self.high_index:
+                return candidate
+            else:
+                return (self.low_index + self.high_index) // 2
 
     def update_progress(self):
         total = len(self.unsorted_list)
@@ -491,10 +498,10 @@ class AniMangaRanker:
                               "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
             mid = self.calculate_mid()
             if self.low_index >= self.high_index:
-                if new_item_wins and self.initial_low_bound is not None and self.initial_low_bound != 0 and self.low_index == self.initial_low_bound:
+                if new_item_wins and (self.initial_low_bound is not None and self.initial_low_bound != 0 and self.low_index == self.initial_low_bound):
                     self.high_index = self.initial_low_bound
                     self.low_index = 0
-                    self.update_comparison_gui()
+                    self.update_comparison_gui(self.calculatemid())
                     return
                 else:
                     insertion_index = self.low_index if new_item_wins else self.low_index + 1
@@ -502,7 +509,7 @@ class AniMangaRanker:
                     self.current_index += 1
                     self.reset_binary_range()
                     if self.current_index < len(self.unsorted_list):
-                        self.update_comparison_gui()
+                        self.update_comparison_gui(self.calculate_mid())
                     else:
                         self.show_final_results()
                     return
@@ -510,7 +517,7 @@ class AniMangaRanker:
                 self.high_index = mid - 1
             else:
                 self.low_index = mid + 1
-            if self.low_index >= self.high_index:
+            if self.low_index > self.high_index:
                 insertion_index = self.low_index if new_item_wins else self.low_index + 1
                 self.sorted_list.insert(insertion_index, self.unsorted_list[self.current_index])
                 self.current_index += 1
@@ -520,7 +527,7 @@ class AniMangaRanker:
                 else:
                     self.show_final_results()
             else:
-                self.update_comparison_gui()
+                self.update_comparison_gui(self.calculate_mid())
         except Exception as e:
             console.log("Error in handle_comparison: " + str(e))
 
