@@ -432,8 +432,6 @@ class AniMangaRanker:
         self.comparisons_remaining = math.ceil(math.log2(self.high_index - self.low_index + 1)) if (self.high_index - self.low_index + 1) > 0 else 0
         # Update the unsorted comparisons estimate.
         self.unsorted_comparisons_remaining = self.estimated_unsorted_comparisons_remaining()
-        # (Assumes these UI update methods exist in your code)
-        self.update_unsorted_comparisons_label()
         self.update_debug_info()
     
     def calculate_mid(self) -> int:
