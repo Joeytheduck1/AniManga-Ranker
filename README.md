@@ -1,7 +1,7 @@
 # AniManga-Ranker
 ### __Note: I did not code this, Copilot did 99.99% of the work, and I just told it what I wanted it to do. I do not claim to be a coder or programmer by any means, and all I did was test it to see if it worked.__
 
-AniManga Ranker, coded in Python, helps users sort and order their completed anime/manga list from best to worst by using a modified binary search algorithm. 
+AniManga Ranker, coded in Python (Now in HTML and website stuff idk), helps users sort and order their completed anime/manga list from best to worst by using a modified binary search algorithm. 
 
 ### [Changelog](https://github.com/Joeytheduck1/AniManga-Ranker/wiki/Changelog) | [Planned Features](https://github.com/Joeytheduck1/AniManga-Ranker/wiki/Planned-Features)
 ## DISCLAIMER
