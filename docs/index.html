@@ -880,17 +880,20 @@ class AniMangaRanker:
                 document.getElementById("pausedCheckbox").checked = state.get("pausedCheckbox", False)
                 document.getElementById("droppedCheckbox").checked = state.get("droppedCheckbox", False)
                 document.getElementById("includeImagesCheckbox").checked = state.get("includeImagesCheckbox", False)
-                
-                # First, repopulate the dropdown options based on self.all_items.
-                self.update_dropdowns()
-                
+            
                 # Now restore the filter values so they are not overwritten.
                 saved_season = state.get("seasonDropdown", "All")
                 # Adjust capitalization if needed (e.g., "winter" -> "Winter")
                 saved_season = saved_season if saved_season == "All" else saved_season.capitalize()
                 document.getElementById("seasonDropdown").value = saved_season
                 document.getElementById("yearDropdown").value = state.get("yearDropdown", "All")
+
+                # First, repopulate the dropdown options based on self.all_items.
+                self.update_dropdowns()
                 
+                self.reset_binary_range()  # Recalculate comparisons remaining based on the current sorted list.
+                self.set_text("unsortedComparisonsLabel", "Estimated Total Comparisons Left: " + str(self.unsorted_comparisons_remaining))
+
                 self.update_progress()
                 self.update_comparison_gui()
                 console.log("Progress loaded.")
