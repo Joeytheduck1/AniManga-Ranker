@@ -701,8 +701,7 @@ class AniMangaRanker:
                 opt.text = f"{year} ({year_counts[year]})"
                 year_dropdown.appendChild(opt)
             year_dropdown.value = current_year;
-            season_dropdown.value = current_season  # Restore saved value
-            year_dropdown.value = current_year      # Restore saved value
+            
         except Exception as e:
             console.log("Error in update_dropdowns: " + str(e))
 
@@ -840,6 +839,8 @@ class AniMangaRanker:
             "initial_estimated_midpoint": self.initial_estimated_midpoint,
             "initial_low_bound": self.initial_low_bound,
             "unsorted_comparisons_remaining": self.unsorted_comparisons_remaining,
+            "seasonDropdown": document.getElementById("seasonDropdown").value,
+            "yearDropdown": document.getElementById("yearDropdown").value,
             # Save UI states:
             "username": document.getElementById("usernameInput").value,
             "completedCheckbox": document.getElementById("completedCheckbox").checked,
@@ -847,8 +848,6 @@ class AniMangaRanker:
             "pausedCheckbox": document.getElementById("pausedCheckbox").checked,
             "droppedCheckbox": document.getElementById("droppedCheckbox").checked,
             "includeImagesCheckbox": document.getElementById("includeImagesCheckbox").checked,
-            "seasonDropdown": document.getElementById("seasonDropdown").value,
-            "yearDropdown": document.getElementById("yearDropdown").value,
         }
         from js import localStorage, console
         localStorage.setItem("aniRankerState", json.dumps(state))
@@ -883,6 +882,7 @@ class AniMangaRanker:
             
                 # Now restore the filter values so they are not overwritten.
                 saved_season = state.get("seasonDropdown", "All")
+                saved_year = state.get("yearDropdown", "All")
                 # Adjust capitalization if needed (e.g., "winter" -> "Winter")
                 saved_season = saved_season if saved_season == "All" else saved_season.capitalize()
                 document.getElementById("seasonDropdown").value = saved_season
