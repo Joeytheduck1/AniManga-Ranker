@@ -8,7 +8,7 @@ AniManga Ranker, coded in Python (Now in HTML and website stuff idk), helps user
 Depending on how many anime/manga you have completed, it could easily take more than an hour or two. For reference, with 247 anime completed and assuming every choice takes 5 seconds, it will take roughly two hours to complete the program. __This is not for the faint of heart.__
 
 <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-  <img src="https://i.ibb.co/8gm8RP6F/Screenshot-2025-04-26-231437.png" alt="AniManga Ranker Screenshot 1" width="800">
+  <img src="https://i.ibb.co/s9Rs2MMm/image.png" alt="AniManga Ranker Screenshot 1" width="800">
 </div>
 
 ## How to use
