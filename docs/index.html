@@ -266,6 +266,26 @@
             <label><input type="checkbox" id="droppedCheckbox"> Dropped</label>
             <label><input type="checkbox" id="includeImagesCheckbox"> Include Images</label>
           </div>
+          <!-- New format filter checkboxes -->
+          <div class="format-filters" style="margin-top: 10px;">
+            <fieldset id="animeFormatFilters" style="display: inline-block; margin-right: 20px;">
+              <legend>Anime Formats</legend>
+              <label><input type="checkbox" id="formatTV" checked> TV</label>
+              <label><input type="checkbox" id="formatMovie" checked> Movie</label>
+              <label><input type="checkbox" id="formatTVShort" checked> TV Short</label>
+              <label><input type="checkbox" id="formatSpecial" checked> Special</label>
+              <label><input type="checkbox" id="formatOVA" checked> OVA</label>
+              <label><input type="checkbox" id="formatONA" checked> ONA</label>
+              <label><input type="checkbox" id="formatMusic" checked> Music</label>
+            </fieldset>
+          
+            <fieldset id="mangaFormatFilters" style="display: inline-block;">
+              <legend>Manga Formats</legend>
+              <label><input type="checkbox" id="formatManga" checked> Manga</label>
+              <label><input type="checkbox" id="formatNovel" checked> Novel</label>
+              <label><input type="checkbox" id="formatOneShot" checked> One Shot</label>
+            </fieldset>
+          </div>
         </div>
         
         <!-- Row containing the main buttons and dropdowns -->
@@ -395,7 +415,7 @@ class AniMangaRanker:
         return (
             "query ($name: String) { "
             "MediaListCollection(userName: $name, type: " + media_type + ", status: " + status + ") { "
-            "lists { entries { score media { id title { english romaji } coverImage { extraLarge } season seasonYear } } } } }"
+            "lists { entries { score media { id title { english romaji } coverImage { extraLarge } season seasonYear format } } } } }"
         )
 
     def get_selected_statuses(self, media_type):
@@ -446,6 +466,15 @@ class AniMangaRanker:
                         if mid in seen:
                             continue
                         seen.add(mid)
+
+                        # --- NEW: Check the media format ---
+                        # Get the media's format from the API
+                        entry_format = media.get("format")
+                        # Only include this entry if its format is one of the ones the user selected
+                        if not entry_format or entry_format not in self.get_selected_formats(media_type):
+                            continue
+                        # -------------------------------------
+      
                         title = (media.get("title", {}).get("english") or 
                                  media.get("title", {}).get("romaji") or "Unknown")
                         cover = media.get("coverImage", {}).get("extraLarge", "")
@@ -563,6 +592,32 @@ class AniMangaRanker:
             self.update_debug_info()
         except Exception as e:
             console.log("Error in update_comparison_gui: " + str(e))
+
+    def get_selected_formats(self, media_type):
+        selected_formats = set()
+        if media_type == "ANIME":
+            if document.getElementById("formatTV").checked:
+                selected_formats.add("TV")
+            if document.getElementById("formatMovie").checked:
+                selected_formats.add("MOVIE")
+            if document.getElementById("formatTVShort").checked:
+                selected_formats.add("TV_SHORT")
+            if document.getElementById("formatSpecial").checked:
+                selected_formats.add("SPECIAL")
+            if document.getElementById("formatOVA").checked:
+                selected_formats.add("OVA")
+            if document.getElementById("formatONA").checked:
+                selected_formats.add("ONA")
+            if document.getElementById("formatMusic").checked:
+                selected_formats.add("MUSIC")
+        elif media_type == "MANGA":
+            if document.getElementById("formatManga").checked:
+                selected_formats.add("MANGA")
+            if document.getElementById("formatNovel").checked:
+                selected_formats.add("NOVEL")
+            if document.getElementById("formatOneShot").checked:
+                selected_formats.add("ONE_SHOT")
+        return selected_formats
 
     def handle_comparison(self, new_item_wins):
         try:
