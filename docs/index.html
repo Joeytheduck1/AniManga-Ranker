@@ -423,7 +423,7 @@ class AniMangaRanker:
         if self.is_checked("completedCheckbox"):
             statuses.append("COMPLETED")
         if self.is_checked("watchingCheckbox"):
-            statuses.append("CURRENT" if media_type == "ANIME" else "READING")
+            statuses.append("CURRENT")
         if self.is_checked("pausedCheckbox"):
             statuses.append("PAUSED")
         if self.is_checked("droppedCheckbox"):
