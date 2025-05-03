@@ -907,6 +907,16 @@ class AniMangaRanker:
             "pausedCheckbox": document.getElementById("pausedCheckbox").checked,
             "droppedCheckbox": document.getElementById("droppedCheckbox").checked,
             "includeImagesCheckbox": document.getElementById("includeImagesCheckbox").checked,
+            "formatTV": document.getElementById("formatTV").checked,
+            "formatMovie": document.getElementById("formatMovie").checked,
+            "formatTVShort": document.getElementById("formatTVShort").checked,
+            "formatSpecial": document.getElementById("formatSpecial").checked,
+            "formatOVA": document.getElementById("formatOVA").checked,
+            "formatONA": document.getElementById("formatONA").checked,
+            "formatMusic": document.getElementById("formatMusic").checked,
+            "formatManga": document.getElementById("formatManga").checked,
+            "formatNovel": document.getElementById("formatNovel").checked,
+            "formatOneShot": document.getElementById("formatOneShot").checked,
         }
         from js import localStorage, console
         localStorage.setItem("aniRankerState", json.dumps(state))
@@ -938,6 +948,18 @@ class AniMangaRanker:
                 document.getElementById("pausedCheckbox").checked = state.get("pausedCheckbox", False)
                 document.getElementById("droppedCheckbox").checked = state.get("droppedCheckbox", False)
                 document.getElementById("includeImagesCheckbox").checked = state.get("includeImagesCheckbox", False)
+
+                # Restore new format checkbox states:
+                document.getElementById("formatTV").checked = state.get("formatTV", True)
+                document.getElementById("formatMovie").checked = state.get("formatMovie", True)
+                document.getElementById("formatTVShort").checked = state.get("formatTVShort", True)
+                document.getElementById("formatSpecial").checked = state.get("formatSpecial", True)
+                document.getElementById("formatOVA").checked = state.get("formatOVA", True)
+                document.getElementById("formatONA").checked = state.get("formatONA", True)
+                document.getElementById("formatMusic").checked = state.get("formatMusic", True)
+                document.getElementById("formatManga").checked = state.get("formatManga", True)
+                document.getElementById("formatNovel").checked = state.get("formatNovel", True)
+                document.getElementById("formatOneShot").checked = state.get("formatOneShot", True)
             
                 # Now restore the filter values so they are not overwritten.
                 saved_season = state.get("seasonDropdown", "All")
