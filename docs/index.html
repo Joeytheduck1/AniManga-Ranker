@@ -421,7 +421,47 @@ def build_group_html(media_group, include_images):
             html += f"<div class='group-title'>{item[1]}</div>"
             html += "</div>"
         html += "</div>"
-        return html
+        return HTML
+
+def group_related_items(sorted_list):
+    """
+    Groups media items into lists based on direct PREQUEL/SEQUEL relationships.
+    Each media item is a tuple: (id, title, cover, score, season, seasonYear, relations)
+    """
+    parent = {}
+
+    def find(x):
+        if parent[x] != x:
+            parent[x] = find(parent[x])
+        return parent[x]
+
+    def union(x, y):
+        root_x = find(x)
+        root_y = find(y)
+        if root_x != root_y:
+            parent[root_y] = root_x
+
+    # Each item starts as its own parent.
+    for item in sorted_list:
+        media_id = item[0]
+        parent[media_id] = media_id
+
+    # Union items that share a PREQUEL or SEQUEL relation.
+    for item in sorted_list:
+        media_id = item[0]
+        relations = item[6] if len(item) > 6 else []
+        for relation in relations:
+            if relation.get("relationType") in ("PREQUEL", "SEQUEL"):
+                related_id = relation.get("node", {}).get("id")
+                if related_id in parent:
+                    union(media_id, related_id)
+
+    # Build groups using the union-find structure.
+    groups = {}
+    for item in sorted_list:
+        root = find(item[0])
+        groups.setdefault(root, []).append(item)
+    return list(groups.values())
       
 class AniMangaRanker:
     def __init__(self):
@@ -541,46 +581,6 @@ class AniMangaRanker:
                 random.shuffle(group)
                 new_results.extend(group)
         return new_results
-    
-    def group_related_items(sorted_list):
-        """
-        Groups media items into lists based on direct PREQUEL/SEQUEL relationships.
-        Each media item is a tuple: (id, title, cover, score, season, seasonYear, relations)
-        """
-        parent = {}
-    
-        def find(x):
-            if parent[x] != x:
-                parent[x] = find(parent[x])
-            return parent[x]
-    
-        def union(x, y):
-            root_x = find(x)
-            root_y = find(y)
-            if root_x != root_y:
-                parent[root_y] = root_x
-    
-        # Each item starts as its own parent.
-        for item in sorted_list:
-            media_id = item[0]
-            parent[media_id] = media_id
-    
-        # Union items that share a PREQUEL or SEQUEL relation.
-        for item in sorted_list:
-            media_id = item[0]
-            relations = item[6] if len(item) > 6 else []
-            for relation in relations:
-                if relation.get("relationType") in ("PREQUEL", "SEQUEL"):
-                    related_id = relation.get("node", {}).get("id")
-                    if related_id in parent:
-                        union(media_id, related_id)
-    
-        # Build groups using the union-find structure.
-        groups = {}
-        for item in sorted_list:
-            root = find(item[0])
-            groups.setdefault(root, []).append(item)
-        return list(groups.values())
   
     # ---------- Tournament and Comparison Functions ----------
     def estimated_unsorted_comparisons_remaining(self):
