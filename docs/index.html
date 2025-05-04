@@ -637,16 +637,25 @@ class AniMangaRanker:
 
     def update_comparison_gui(self, mid: int = None) -> None:
         try:
-            # Check whether there are any items to compare.
+            # No more items to compare.
             if self.current_index >= len(self.unsorted_list):
                 return
     
             new_item = self.unsorted_list[self.current_index]
-            if not isinstance(new_item, (list, tuple)):
-                console.log("Warning: new_item is not subscriptable:", new_item)
-                return
+            # In grouped mode, new_item should be a list (a group of media items),
+            # and in non-grouped mode it will be a single tuple.
+            if self.is_checked("groupSeriesCheckbox"):
+                if not (isinstance(new_item, list) and len(new_item) > 0):
+                    console.log("Warning: new_item group is not in the expected format:", new_item)
+                    return
+                # Get the first item in the group as representative for instruction text.
+                rep_new_item = new_item[0]
+            else:
+                if not isinstance(new_item, (list, tuple)):
+                    console.log("Warning: new_item is not subscriptable:", new_item)
+                    return
     
-            # Handle the case when we are starting the ranking.
+            # Handling empty sorted list (first insertion)
             if not self.sorted_list:
                 self.sorted_list.append(new_item)
                 self.current_index += 1
@@ -660,26 +669,26 @@ class AniMangaRanker:
             mid = self.calculate_mid()
             if mid < 0 or mid >= len(self.sorted_list):
                 mid = 0
-    
             candidate = self.sorted_list[mid]
-            if not isinstance(candidate, (list, tuple)):
-                console.log("Warning: candidate is not subscriptable:", candidate)
-                return
-    
-            # Update the instruction label using the title (assumed to be in the second element, index 1).
-            self.set_text("instructionLabel", new_item[1] + " vs " + candidate[1])
+            if self.is_checked("groupSeriesCheckbox"):
+                if not (isinstance(candidate, list) and len(candidate) > 0):
+                    console.log("Warning: candidate group is not in the expected format:", candidate)
+                    return
+                rep_candidate = candidate[0]
+                # Use the representative items' titles for the instruction label.
+                self.set_text("instructionLabel", rep_new_item[1] + " vs " + rep_candidate[1])
+            else:
+                self.set_text("instructionLabel", new_item[1] + " vs " + candidate[1])
     
             btn1 = document.getElementById("compButton1")
             btn2 = document.getElementById("compButton2")
             include_images = self.is_checked("includeImagesCheckbox")
-    
             if self.is_checked("groupSeriesCheckbox"):
-                new_item_group = new_item if isinstance(new_item, list) else [new_item]
-                candidate_group = candidate if isinstance(candidate, list) else [candidate]
-                btn1.innerHTML = build_group_html(new_item_group, include_images)
-                btn2.innerHTML = build_group_html(candidate_group, include_images)
+                # When grouped, new_item and candidate are both lists (groups).
+                btn1.innerHTML = build_group_html(new_item, include_images)
+                btn2.innerHTML = build_group_html(candidate, include_images)
             else:
-                # Display single items (with image support if specified).
+                # For single media items
                 if include_images and new_item[2] and candidate[2]:
                     btn1.innerHTML = (
                         f'<div class="title">{new_item[1]}</div>'
@@ -817,10 +826,13 @@ class AniMangaRanker:
             self.all_items = items
             if self.is_checked("groupSeriesCheckbox"):
                 grouped = group_related_items(self.all_items)
-                # Pick one representative for each group—here, we simply take the first
-                self.unsorted_list = [group[0] for group in grouped]
+                # Preserve the entire groups—for later display, each element is a list (group) of media items.
+                self.unsorted_list = grouped
+                # Start the sorted list with the first group
+                self.sorted_list = [grouped[0]]
             else:
                 self.unsorted_list = self.all_items.copy()
+                self.sorted_list = [self.unsorted_list[0]]
             self.sorted_list = [self.unsorted_list[0]]
             self.current_index = 1
             self.reset_binary_range()
