@@ -1,3 +1,20 @@
+question-ai-logo
+managemanage
+managemanage
+useruser
+fullfull
+closeclose
+Chat AI
+Hello! Is there any question I can help you with?
+What is the longest war in American history?
+What can you do?
+Ask AI
+Caution
+Refresh this page to activate the extension on this page.
+Refresh
+Feedback
+logo
+more
 <!doctype html>
 <html lang="en">
   <head>
@@ -229,31 +246,11 @@
         cursor: pointer;
         border-radius: 4px;
       }
-      .media-group-container {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: center;
-          gap: 5px;
-      }
-      .media-group-item {
-          text-align: center;
-          width: 60px; /* adjust as needed */
-      }
-      .group-image {
-          max-width: 100%;
-          height: auto;
-          border-radius: 3px;
-      }
-      .group-title {
-          font-size: 10px;
-          margin-top: 3px;
-          color: #f8f8f2;
-      }
       .progress-row {
       display: flex;           /* Arrange children in a horizontal row */
       align-items: center;     /* Optional: vertically center align content */
       gap: 5px;                  /* No gap between the two elements */
-      }  
+    }
     </style>
   </head>
   <body>
@@ -285,12 +282,6 @@
             <label><input type="checkbox" id="pausedCheckbox"> Paused</label>
             <label><input type="checkbox" id="droppedCheckbox"> Dropped</label>
             <label><input type="checkbox" id="includeImagesCheckbox"> Include Images</label>
-          </div>
-          <div>
-            <label>
-              <input type="checkbox" id="groupSeriesCheckbox" title="Group related series (sequels and prequels) together">
-              Group Related Series
-            </label>
           </div>
           <!-- New format filter checkboxes -->
           <div class="format-filters" style="margin-top: 10px;">
@@ -411,135 +402,6 @@ from pyodide.ffi import create_proxy
 # Use the absolute URL with a trailing slash so it is not misinterpreted as relative
 ANILIST_API_URL = "https://graphql.anilist.co/"
 
-import json
-from js import console
-
-def to_native(obj):
-    """
-    Attempts to convert a JS object (possibly a Pyodide Proxy) to a native Python object.
-    First, it checks if the object has a numeric 'length' property (as with JS arrays). If so,
-    it manually builds a list from the object. Otherwise, it tries to use .to_py(), and finally
-    falls back to a JSON round-trip.
-    """
-    try:
-        # If the object has a constant numeric 'length', assume it is array-like.
-        try:
-            length = int(obj.length)
-            native_list = []
-            for i in range(length):
-                native_list.append(obj[i])
-            return native_list
-        except Exception:
-            # If no length or conversion fails, move on.
-            pass
-        
-        # Next, try the built-in .to_py() method if available.
-        if hasattr(obj, "to_py") and callable(obj.to_py):
-            return obj.to_py()
-    except Exception as e:
-        console.log("to_native: obj.to_py() failed with", e)
-    
-    try:
-        # Fall back to a JSON round-trip conversion. (Works only if the object is JSON serializable.)
-        return json.loads(json.dumps(obj))
-    except Exception as e:
-        console.log("to_native: JSON conversion failed with", e)
-    
-    # As a last resort, return the object as-is.
-    return obj
-      
-def get_media_title(item, group_mode=False):
-    """
-    Returns the title from a media item (assumed to be a tuple or list), or—if in group mode—
-    returns the title from the first media tuple in the group (index 1). This function uses
-    to_native() to ensure that the passed object is a proper Python list.
-    """
-    try:
-        # Convert the entire item to a native Python object.
-        native_item = to_native(item)
-        if not isinstance(native_item, (list, tuple)):
-            try:
-                native_item = list(native_item)
-            except Exception as conv_e:
-                console.log("Error converting item to list:", conv_e)
-                return "N/A"
-        if group_mode:
-            if len(native_item) == 0:
-                return "N/A"
-            rep = native_item[0]
-            rep = to_native(rep)
-            if not isinstance(rep, (list, tuple)):
-                try:
-                    rep = list(rep)
-                except Exception as conv_e:
-                    console.log("Error converting representative to list:", conv_e)
-                    return "N/A"
-            # Assumes the title is at index 1.
-            return rep[1] if len(rep) > 1 else "N/A"
-        else:
-            return native_item[1] if len(native_item) > 1 else "N/A"
-    except Exception as e:
-        console.log("Error in get_media_title:", e, item)
-        return "N/A"
-
-def build_group_html(media_group, include_images):
-    """
-    Builds HTML for a group of media items.
-    Each item is expected to be a tuple: (id, title, cover, score, season, seasonYear, relations)
-    """
-    html = "<div class='media-group-container'>"
-    for item in media_group:
-        if not isinstance(item, (list, tuple)) or len(item) < 2:
-            console.log("Warning: encountered an item that is not a valid media tuple:", item)
-            continue
-        html += "<div class='media-group-item'>"
-        if include_images and len(item) > 2 and item[2]:
-            html += f"<img src='{item[2]}' alt='Cover for {item[1]}' class='group-image'>"
-        html += f"<div class='group-title'>{item[1]}</div>"
-        html += "</div>"
-    html += "</div>"
-    return html
-
-def group_related_items(sorted_list):
-    """
-    Groups media items into lists based on direct PREQUEL/SEQUEL relationships.
-    Each media item is a tuple: (id, title, cover, score, season, seasonYear, relations)
-    """
-    parent = {}
-
-    def find(x):
-        if parent[x] != x:
-            parent[x] = find(parent[x])
-        return parent[x]
-
-    def union(x, y):
-        root_x = find(x)
-        root_y = find(y)
-        if root_x != root_y:
-            parent[root_y] = root_x
-
-    # Each item starts as its own parent.
-    for item in sorted_list:
-        media_id = item[0]
-        parent[media_id] = media_id
-
-    # Union items that share a PREQUEL or SEQUEL relation.
-    for item in sorted_list:
-        media_id = item[0]
-        relations = item[6] if len(item) > 6 else []
-        for relation in relations:
-            if relation.get("relationType") in ("PREQUEL", "SEQUEL"):
-                related_id = relation.get("node", {}).get("id")
-                if related_id in parent:
-                    union(media_id, related_id)
-
-    # Build groups using the union-find structure.
-    groups = {}
-    for item in sorted_list:
-        root = find(item[0])
-        groups.setdefault(root, []).append(item)
-    return list(groups.values())
-      
 class AniMangaRanker:
     def __init__(self):
         # Tournament state variables
@@ -570,18 +432,15 @@ class AniMangaRanker:
         return (
             "query ($name: String) { "
             "MediaListCollection(userName: $name, type: " + media_type + ", status: " + status + ") { "
-            "lists { entries { score media { "
-                "id title { english romaji } coverImage { extraLarge } season seasonYear format "
-                "relations { edges { relationType node { id title { english romaji } } } } "
-            "} } } } }"
+            "lists { entries { score media { id title { english romaji } coverImage { extraLarge } season seasonYear format } } } } }"
         )
-    
+
     def get_selected_statuses(self, media_type):
         statuses = []
         if self.is_checked("completedCheckbox"):
             statuses.append("COMPLETED")
         if self.is_checked("watchingCheckbox"):
-            statuses.append("CURRENT", "REPEATING")
+            statuses.extend(["CURRENT", "REPEATING"])
         if self.is_checked("pausedCheckbox"):
             statuses.append("PAUSED")
         if self.is_checked("droppedCheckbox"):
@@ -639,7 +498,6 @@ class AniMangaRanker:
                         season = media.get("season")
                         seasonYear = media.get("seasonYear")
                         score = entry.get("score", 0)
-                        relations = media.get("relations", {}).get("edges", [])
                         local_results.append((mid, title, cover, score, season, seasonYear))
             local_results.sort(key=lambda x: x[3], reverse=True)
             current_score = None
@@ -658,7 +516,7 @@ class AniMangaRanker:
                 random.shuffle(group)
                 new_results.extend(group)
         return new_results
-  
+
     # ---------- Tournament and Comparison Functions ----------
     def estimated_unsorted_comparisons_remaining(self):
         sorted_count = len(self.sorted_list)
@@ -710,23 +568,7 @@ class AniMangaRanker:
         try:
             if self.current_index >= len(self.unsorted_list):
                 return
-    
             new_item = self.unsorted_list[self.current_index]
-            if self.is_checked("groupSeriesCheckbox"):
-                if not isinstance(new_item, (list, tuple)):
-                    try:
-                        # If new_item is a JS proxy, convert it.
-                        if hasattr(new_item, "to_py") and callable(new_item.to_py):
-                            new_item = new_item.to_py()
-                        else:
-                            new_item = list(new_item)
-                    except Exception as conv_e:
-                        console.log("Error converting new_item group:", conv_e)
-                        return
-                if len(new_item) == 0 or not isinstance(new_item[0], (list, tuple)):
-                    console.log("Warning: new_item group is not in the expected format:", new_item)
-                    return
-    
             if not self.sorted_list:
                 self.sorted_list.append(new_item)
                 self.current_index += 1
@@ -736,48 +578,33 @@ class AniMangaRanker:
                 else:
                     self.show_final_results()
                 return
-    
             mid = self.calculate_mid()
             if mid < 0 or mid >= len(self.sorted_list):
                 mid = 0
             candidate = self.sorted_list[mid]
-            if not isinstance(candidate, (list, tuple)):
-                console.log("Warning: candidate is not subscriptable:", candidate)
-                return
-    
-            group_mode = self.is_checked("groupSeriesCheckbox")
-            # Use get_media_title to extract titles.
-            self.set_text("instructionLabel", get_media_title(new_item, group_mode) +
-                          " vs " + get_media_title(candidate, group_mode))
-    
+            # Format instruction as a single centered line (without a "Compare:" prefix)
+            self.set_text("instructionLabel", new_item[1] + " vs " + candidate[1])
             btn1 = document.getElementById("compButton1")
             btn2 = document.getElementById("compButton2")
             include_images = self.is_checked("includeImagesCheckbox")
-            if group_mode:
-                new_item_group = new_item if isinstance(new_item, list) else [new_item]
-                candidate_group = candidate if isinstance(candidate, list) else [candidate]
-                btn1.innerHTML = build_group_html(new_item_group, include_images)
-                btn2.innerHTML = build_group_html(candidate_group, include_images)
+            if include_images and new_item[2] and candidate[2]:
+                btn1.innerHTML = (
+                    f'<div class="title">{new_item[1]}</div>'
+                    f'<div class="image-container">'
+                    f'  <img src="{new_item[2]}" alt="Cover for {new_item[1]}">'
+                    f'</div>'
+                )
+                btn2.innerHTML = (
+                    f'<div class="title">{candidate[1]}</div>'
+                    f'<div class="image-container">'
+                    f'  <img src="{candidate[2]}" alt="Cover for {candidate[1]}">'
+                    f'</div>'
+                )
             else:
-                if include_images and new_item[2] and candidate[2]:
-                    btn1.innerHTML = (
-                        f'<div class="title">{new_item[1]}</div>'
-                        f'<div class="image-container">'
-                        f'<img src="{new_item[2]}" alt="Cover for {new_item[1]}">'
-                        f'</div>'
-                    )
-                    btn2.innerHTML = (
-                        f'<div class="title">{candidate[1]}</div>'
-                        f'<div class="image-container">'
-                        f'<img src="{candidate[2]}" alt="Cover for {candidate[1]}">'
-                        f'</div>'
-                    )
-                else:
-                    btn1.classList.add("no-image")
-                    btn2.classList.add("no-image")
-                    btn1.innerText = new_item[1]
-                    btn2.innerText = candidate[1]
-    
+                btn1.classList.add("no-image");
+                btn2.classList.add("no-image");
+                btn1.innerText = new_item[1]
+                btn2.innerText = candidate[1]
             self.update_progress()
             self.update_debug_info()
         except Exception as e:
@@ -863,24 +690,15 @@ class AniMangaRanker:
 
     def show_final_results(self):
         try:
-            if self.is_checked("groupSeriesCheckbox"):
-                groups = group_related_items(self.sorted_list)
-            else:
-                groups = [[item] for item in self.sorted_list]  # Each item becomes its own group.
-    
             final_text = "Final Ranking (Best to Worst):\n\n"
-            for idx, group in enumerate(groups):
-                final_text += f"Group {idx+1}:\n"
-                for item in group:
-                    final_text += f"  - {item[1]}\n"
-                final_text += "\n"
+            for i, comp in enumerate(self.sorted_list):
+                final_text += str(i+1) + ". " + comp[1] + "\n"
             finalModal = document.getElementById("finalModal")
             document.getElementById("finalModalContent").innerText = final_text
             finalModal.style.display = "block"
             self.set_text("progressLabel", "Ranking complete!")
         except Exception as e:
             console.log("Error in show_final_results: " + str(e))
-
 
     async def start_fetch(self, media_type):
         try:
@@ -894,18 +712,6 @@ class AniMangaRanker:
                 self.set_text("progressLabel", "No completed " + media_type.lower() + " found for " + username)
                 return
             self.all_items = items
-            if self.is_checked("groupSeriesCheckbox"):
-                grouped = group_related_items(self.all_items)
-                # Preserve the entire groups—for later display, each element is a list (group) of media items.
-                self.unsorted_list = grouped
-                # Start the sorted list with the first group
-                self.sorted_list = [grouped[0]]
-            else:
-                self.unsorted_list = self.all_items.copy()
-                self.sorted_list = [self.unsorted_list[0]]
-            self.sorted_list = [self.unsorted_list[0]]
-            self.current_index = 1
-            self.reset_binary_range()
             self.update_dropdowns()  # Update dropdowns based on fetched data
             self.unsorted_list = items
             self.sorted_list = [items[0]]
@@ -1006,48 +812,9 @@ class AniMangaRanker:
         try:
             modal = document.getElementById("editModal")
             modal.style.display = "block"
-            if self.is_checked("groupSeriesCheckbox"):
-                self.refresh_edit_modal_grouped()
-            else:
-                self.refresh_edit_modal()
+            self.refresh_edit_modal()
         except Exception as e:
             console.log("Error in edit_sorted_list: " + str(e))
-
-    def refresh_edit_modal_grouped(self):
-        try:
-            content = document.getElementById("editModalContent")
-            content.innerHTML = ""
-            groups = group_related_items(self.sorted_list)
-            ol = document.createElement("ol")
-            for idx, group in enumerate(groups):
-                li = document.createElement("li")
-                li.className = "drag-item"
-                li.setAttribute("draggable", "true")
-                group_html = f"<div><strong>Group {idx+1}:</strong></div>"
-                for item in group:
-                    group_html += f"<div>{item[1]}</div>"
-                li.innerHTML = group_html
-                li.addEventListener("dragstart", create_proxy(lambda e, i=idx: self.on_drag_start(e, i)))
-                li.addEventListener("dragover", create_proxy(self.on_drag_over))
-                li.addEventListener("drop", create_proxy(lambda e, i=idx: self.on_drop_group(e, i)))
-                ol.appendChild(li)
-            content.appendChild(ol)
-        except Exception as e:
-            console.log("Error in refresh_edit_modal_grouped: " + str(e))
-
-    def on_drop_group(self, e, group_index):
-        e.preventDefault()
-        src_index = int(e.dataTransfer.getData("text/plain"))
-        if src_index != group_index:
-            groups = group_related_items(self.sorted_list)
-            moved_group = groups.pop(src_index)
-            groups.insert(group_index, moved_group)
-            # Flatten the list back.
-            new_sorted = []
-            for group in groups:
-                new_sorted.extend(group)
-            self.sorted_list = new_sorted
-            self.refresh_edit_modal_grouped()
 
     def on_drag_start(self, e, index):
         e.dataTransfer.setData("text/plain", str(index))
@@ -1119,35 +886,18 @@ class AniMangaRanker:
     def update_debug_info(self):
         try:
             debugInfo = document.getElementById("debugInfo")
-            if not self.sorted_list or len(self.sorted_list) == 0:
-                debugInfo.innerText = "Sorted list is empty."
-                return
-    
-            # Ensure indices are within range.
-            low_index = self.low_index if self.low_index < len(self.sorted_list) else 0
-            high_index = self.high_index if self.high_index < len(self.sorted_list) else len(self.sorted_list) - 1
-            initial_mid = (self.initial_estimated_midpoint 
-                           if (self.initial_estimated_midpoint is not None and self.initial_estimated_midpoint < len(self.sorted_list))
-                           else 0)
-            current_mid = self.calculate_mid() if self.calculate_mid() < len(self.sorted_list) else 0
-    
-            group_mode = self.is_checked("groupSeriesCheckbox")
-    
-            low_item = get_media_title(self.sorted_list[low_index], group_mode)
-            high_item = get_media_title(self.sorted_list[high_index], group_mode)
-            initial_item = get_media_title(self.sorted_list[initial_mid], group_mode)
-            current_item = get_media_title(self.sorted_list[current_mid], group_mode)
-    
-            info = (
-                f"Low bound: {low_item} (index {low_index})\n"
-                f"High bound: {high_item} (index {high_index})\n"
-                f"Initial midpoint: {initial_item} (index {initial_mid})\n"
-                f"Current midpoint: {current_item} (index {current_mid})\n"
-            )
+            low_item = self.sorted_list[self.low_index][1] if self.sorted_list and self.low_index < len(self.sorted_list) else "N/A"
+            high_item = self.sorted_list[self.high_index][1] if self.sorted_list and self.high_index < len(self.sorted_list) else "N/A"
+            initial_item = self.sorted_list[self.initial_estimated_midpoint][1] if self.initial_estimated_midpoint is not None and self.sorted_list and self.initial_estimated_midpoint < len(self.sorted_list) else "N/A"
+            current_mid = self.calculate_mid()
+            current_item = self.sorted_list[current_mid][1] if self.sorted_list and current_mid < len(self.sorted_list) else "N/A"
+            info = (f"Low bound: {low_item} (index {self.low_index})\n"
+                    f"High bound: {high_item} (index {self.high_index})\n"
+                    f"Initial midpoint: {initial_item} (index {self.initial_estimated_midpoint})\n"
+                    f"Current midpoint: {current_item} (index {current_mid})")
             debugInfo.innerText = info
         except Exception as e:
-            console.log("Error in update_debug_info: " + str(e))
-    
+            console.log("Error updating debug info: " + str(e))
     def save_progress(self):
         """
         Saves the complete state of the application to localStorage.
@@ -1184,7 +934,6 @@ class AniMangaRanker:
             "formatManga": document.getElementById("formatManga").checked,
             "formatNovel": document.getElementById("formatNovel").checked,
             "formatOneShot": document.getElementById("formatOneShot").checked,
-            "groupSeriesEnabled": document.getElementById("groupSeriesCheckbox").checked,
         }
         from js import localStorage, console
         localStorage.setItem("aniRankerState", json.dumps(state))
@@ -1216,7 +965,6 @@ class AniMangaRanker:
                 document.getElementById("pausedCheckbox").checked = state.get("pausedCheckbox", False)
                 document.getElementById("droppedCheckbox").checked = state.get("droppedCheckbox", False)
                 document.getElementById("includeImagesCheckbox").checked = state.get("includeImagesCheckbox", False)
-                document.getElementById("groupSeriesCheckbox").checked = state.get("groupSeriesEnabled", False)
 
                 # Restore new format checkbox states:
                 document.getElementById("formatTV").checked = state.get("formatTV", True)
