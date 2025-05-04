@@ -229,11 +229,31 @@
         cursor: pointer;
         border-radius: 4px;
       }
+      .media-group-container {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 5px;
+      }
+      .media-group-item {
+          text-align: center;
+          width: 60px; /* adjust as needed */
+      }
+      .group-image {
+          max-width: 100%;
+          height: auto;
+          border-radius: 3px;
+      }
+      .group-title {
+          font-size: 10px;
+          margin-top: 3px;
+          color: #f8f8f2;
+      }
       .progress-row {
       display: flex;           /* Arrange children in a horizontal row */
       align-items: center;     /* Optional: vertically center align content */
       gap: 5px;                  /* No gap between the two elements */
-    }
+      }  
     </style>
   </head>
   <body>
@@ -265,6 +285,12 @@
             <label><input type="checkbox" id="pausedCheckbox"> Paused</label>
             <label><input type="checkbox" id="droppedCheckbox"> Dropped</label>
             <label><input type="checkbox" id="includeImagesCheckbox"> Include Images</label>
+          </div>
+          <div>
+            <label>
+              <input type="checkbox" id="groupSeriesCheckbox" title="Group related series (sequels and prequels) together">
+              Group Related Series
+            </label>
           </div>
           <!-- New format filter checkboxes -->
           <div class="format-filters" style="margin-top: 10px;">
@@ -415,15 +441,19 @@ class AniMangaRanker:
         return (
             "query ($name: String) { "
             "MediaListCollection(userName: $name, type: " + media_type + ", status: " + status + ") { "
-            "lists { entries { score media { id title { english romaji } coverImage { extraLarge } season seasonYear format } } } } }"
+            "lists { entries { score media { "
+                "id title { english romaji } coverImage { extraLarge } season seasonYear format "
+                "relations { edges { relationType node { id title { english romaji } } } } "
+            "} } } }"
         )
+
 
     def get_selected_statuses(self, media_type):
         statuses = []
         if self.is_checked("completedCheckbox"):
             statuses.append("COMPLETED")
         if self.is_checked("watchingCheckbox"):
-            statuses.extend(["CURRENT", "REPEATING"])
+            statuses.append("CURRENT", "REPEATING")
         if self.is_checked("pausedCheckbox"):
             statuses.append("PAUSED")
         if self.is_checked("droppedCheckbox"):
@@ -481,6 +511,7 @@ class AniMangaRanker:
                         season = media.get("season")
                         seasonYear = media.get("seasonYear")
                         score = entry.get("score", 0)
+                        relations = media.get("relations", {}).get("edges", [])
                         local_results.append((mid, title, cover, score, season, seasonYear))
             local_results.sort(key=lambda x: x[3], reverse=True)
             current_score = None
@@ -499,7 +530,47 @@ class AniMangaRanker:
                 random.shuffle(group)
                 new_results.extend(group)
         return new_results
-
+    
+    def group_related_items(sorted_list):
+        """
+        Groups media items into lists based on direct PREQUEL/SEQUEL relationships.
+        Each media item is a tuple: (id, title, cover, score, season, seasonYear, relations)
+        """
+        parent = {}
+    
+        def find(x):
+            if parent[x] != x:
+                parent[x] = find(parent[x])
+            return parent[x]
+    
+        def union(x, y):
+            root_x = find(x)
+            root_y = find(y)
+            if root_x != root_y:
+                parent[root_y] = root_x
+    
+        # Each item starts as its own parent.
+        for item in sorted_list:
+            media_id = item[0]
+            parent[media_id] = media_id
+    
+        # Union items that share a PREQUEL or SEQUEL relation.
+        for item in sorted_list:
+            media_id = item[0]
+            relations = item[6] if len(item) > 6 else []
+            for relation in relations:
+                if relation.get("relationType") in ("PREQUEL", "SEQUEL"):
+                    related_id = relation.get("node", {}).get("id")
+                    if related_id in parent:
+                        union(media_id, related_id)
+    
+        # Build groups using the union-find structure.
+        groups = {}
+        for item in sorted_list:
+            root = find(item[0])
+            groups.setdefault(root, []).append(item)
+        return list(groups.values())
+  
     # ---------- Tournament and Comparison Functions ----------
     def estimated_unsorted_comparisons_remaining(self):
         sorted_count = len(self.sorted_list)
@@ -561,33 +632,43 @@ class AniMangaRanker:
                 else:
                     self.show_final_results()
                 return
+    
             mid = self.calculate_mid()
             if mid < 0 or mid >= len(self.sorted_list):
                 mid = 0
             candidate = self.sorted_list[mid]
-            # Format instruction as a single centered line (without a "Compare:" prefix)
+    
             self.set_text("instructionLabel", new_item[1] + " vs " + candidate[1])
             btn1 = document.getElementById("compButton1")
             btn2 = document.getElementById("compButton2")
             include_images = self.is_checked("includeImagesCheckbox")
-            if include_images and new_item[2] and candidate[2]:
-                btn1.innerHTML = (
-                    f'<div class="title">{new_item[1]}</div>'
-                    f'<div class="image-container">'
-                    f'  <img src="{new_item[2]}" alt="Cover for {new_item[1]}">'
-                    f'</div>'
-                )
-                btn2.innerHTML = (
-                    f'<div class="title">{candidate[1]}</div>'
-                    f'<div class="image-container">'
-                    f'  <img src="{candidate[2]}" alt="Cover for {candidate[1]}">'
-                    f'</div>'
-                )
+    
+            # If grouping is enabled, treat items as groups
+            if self.is_checked("groupSeriesCheckbox"):
+                new_item_group = new_item if isinstance(new_item, list) else [new_item]
+                candidate_group = candidate if isinstance(candidate, list) else [candidate]
+                btn1.innerHTML = build_group_html(new_item_group, include_images)
+                btn2.innerHTML = build_group_html(candidate_group, include_images)
             else:
-                btn1.classList.add("no-image");
-                btn2.classList.add("no-image");
-                btn1.innerText = new_item[1]
-                btn2.innerText = candidate[1]
+                # Otherwise, display single items
+                if include_images and new_item[2] and candidate[2]:
+                    btn1.innerHTML = (
+                        f'<div class="title">{new_item[1]}</div>'
+                        f'<div class="image-container">'
+                        f'<img src="{new_item[2]}" alt="Cover for {new_item[1]}">'
+                        f'</div>'
+                    )
+                    btn2.innerHTML = (
+                        f'<div class="title">{candidate[1]}</div>'
+                        f'<div class="image-container">'
+                        f'<img src="{candidate[2]}" alt="Cover for {candidate[1]}">'
+                        f'</div>'
+                    )
+                else:
+                    btn1.classList.add("no-image")
+                    btn2.classList.add("no-image")
+                    btn1.innerText = new_item[1]
+                    btn2.innerText = candidate[1]
             self.update_progress()
             self.update_debug_info()
         except Exception as e:
@@ -673,15 +754,24 @@ class AniMangaRanker:
 
     def show_final_results(self):
         try:
+            if self.is_checked("groupSeriesCheckbox"):
+                groups = group_related_items(self.sorted_list)
+            else:
+                groups = [[item] for item in self.sorted_list]  # Each item becomes its own group.
+    
             final_text = "Final Ranking (Best to Worst):\n\n"
-            for i, comp in enumerate(self.sorted_list):
-                final_text += str(i+1) + ". " + comp[1] + "\n"
+            for idx, group in enumerate(groups):
+                final_text += f"Group {idx+1}:\n"
+                for item in group:
+                    final_text += f"  - {item[1]}\n"
+                final_text += "\n"
             finalModal = document.getElementById("finalModal")
             document.getElementById("finalModalContent").innerText = final_text
             finalModal.style.display = "block"
             self.set_text("progressLabel", "Ranking complete!")
         except Exception as e:
             console.log("Error in show_final_results: " + str(e))
+
 
     async def start_fetch(self, media_type):
         try:
@@ -795,9 +885,48 @@ class AniMangaRanker:
         try:
             modal = document.getElementById("editModal")
             modal.style.display = "block"
-            self.refresh_edit_modal()
+            if self.is_checked("groupSeriesCheckbox"):
+                self.refresh_edit_modal_grouped()
+            else:
+                self.refresh_edit_modal()
         except Exception as e:
             console.log("Error in edit_sorted_list: " + str(e))
+
+    def refresh_edit_modal_grouped(self):
+        try:
+            content = document.getElementById("editModalContent")
+            content.innerHTML = ""
+            groups = group_related_items(self.sorted_list)
+            ol = document.createElement("ol")
+            for idx, group in enumerate(groups):
+                li = document.createElement("li")
+                li.className = "drag-item"
+                li.setAttribute("draggable", "true")
+                group_html = f"<div><strong>Group {idx+1}:</strong></div>"
+                for item in group:
+                    group_html += f"<div>{item[1]}</div>"
+                li.innerHTML = group_html
+                li.addEventListener("dragstart", create_proxy(lambda e, i=idx: self.on_drag_start(e, i)))
+                li.addEventListener("dragover", create_proxy(self.on_drag_over))
+                li.addEventListener("drop", create_proxy(lambda e, i=idx: self.on_drop_group(e, i)))
+                ol.appendChild(li)
+            content.appendChild(ol)
+        except Exception as e:
+            console.log("Error in refresh_edit_modal_grouped: " + str(e))
+
+    def on_drop_group(self, e, group_index):
+        e.preventDefault()
+        src_index = int(e.dataTransfer.getData("text/plain"))
+        if src_index != group_index:
+            groups = group_related_items(self.sorted_list)
+            moved_group = groups.pop(src_index)
+            groups.insert(group_index, moved_group)
+            # Flatten the list back.
+            new_sorted = []
+            for group in groups:
+                new_sorted.extend(group)
+            self.sorted_list = new_sorted
+            self.refresh_edit_modal_grouped()
 
     def on_drag_start(self, e, index):
         e.dataTransfer.setData("text/plain", str(index))
@@ -881,6 +1010,7 @@ class AniMangaRanker:
             debugInfo.innerText = info
         except Exception as e:
             console.log("Error updating debug info: " + str(e))
+    
     def save_progress(self):
         """
         Saves the complete state of the application to localStorage.
@@ -917,6 +1047,7 @@ class AniMangaRanker:
             "formatManga": document.getElementById("formatManga").checked,
             "formatNovel": document.getElementById("formatNovel").checked,
             "formatOneShot": document.getElementById("formatOneShot").checked,
+            "groupSeriesEnabled": document.getElementById("groupSeriesCheckbox").checked,
         }
         from js import localStorage, console
         localStorage.setItem("aniRankerState", json.dumps(state))
@@ -948,6 +1079,7 @@ class AniMangaRanker:
                 document.getElementById("pausedCheckbox").checked = state.get("pausedCheckbox", False)
                 document.getElementById("droppedCheckbox").checked = state.get("droppedCheckbox", False)
                 document.getElementById("includeImagesCheckbox").checked = state.get("includeImagesCheckbox", False)
+                document.getElementById("groupSeriesCheckbox").checked = state.get("groupSeriesCheckbox", False)
 
                 # Restore new format checkbox states:
                 document.getElementById("formatTV").checked = state.get("formatTV", True)
@@ -980,6 +1112,18 @@ class AniMangaRanker:
                 console.log("Progress loaded.")
             except Exception as e:
                 console.log("Error loading progress: " + str(e))
+    
+    def build_group_html(media_group, include_images):
+        # media_group is a list of media item tuples.
+        html = "<div class='media-group-container'>"
+        for item in media_group:
+            html += "<div class='media-group-item'>"
+            if include_images and item[2]:
+                html += f"<img src='{item[2]}' alt='Cover for {item[1]}' class='group-image'>"
+            html += f"<div class='group-title'>{item[1]}</div>"
+            html += "</div>"
+        html += "</div>"
+        return html
 
 # Create the global instance of ranker
 ranker = AniMangaRanker()
