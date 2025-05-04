@@ -796,6 +796,15 @@ class AniMangaRanker:
                 self.set_text("progressLabel", "No completed " + media_type.lower() + " found for " + username)
                 return
             self.all_items = items
+            if self.is_checked("groupSeriesCheckbox"):
+                grouped = group_related_items(self.all_items)
+                # Pick one representative for each group—here, we simply take the first
+                self.unsorted_list = [group[0] for group in grouped]
+            else:
+                self.unsorted_list = self.all_items.copy()
+            self.sorted_list = [self.unsorted_list[0]]
+            self.current_index = 1
+            self.reset_binary_range()
             self.update_dropdowns()  # Update dropdowns based on fetched data
             self.unsorted_list = items
             self.sorted_list = [items[0]]
@@ -1090,7 +1099,7 @@ class AniMangaRanker:
                 document.getElementById("pausedCheckbox").checked = state.get("pausedCheckbox", False)
                 document.getElementById("droppedCheckbox").checked = state.get("droppedCheckbox", False)
                 document.getElementById("includeImagesCheckbox").checked = state.get("includeImagesCheckbox", False)
-                document.getElementById("groupSeriesCheckbox").checked = state.get("groupSeriesCheckbox", False)
+                document.getElementById("groupSeriesCheckbox").checked = state.get("groupSeriesEnabled", False)
 
                 # Restore new format checkbox states:
                 document.getElementById("formatTV").checked = state.get("formatTV", True)
