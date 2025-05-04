@@ -411,6 +411,18 @@ from pyodide.ffi import create_proxy
 # Use the absolute URL with a trailing slash so it is not misinterpreted as relative
 ANILIST_API_URL = "https://graphql.anilist.co/"
 
+def build_group_html(media_group, include_images):
+        # media_group is a list of media item tuples.
+        html = "<div class='media-group-container'>"
+        for item in media_group:
+            html += "<div class='media-group-item'>"
+            if include_images and item[2]:
+                html += f"<img src='{item[2]}' alt='Cover for {item[1]}' class='group-image'>"
+            html += f"<div class='group-title'>{item[1]}</div>"
+            html += "</div>"
+        html += "</div>"
+        return html
+      
 class AniMangaRanker:
     def __init__(self):
         # Tournament state variables
@@ -446,18 +458,6 @@ class AniMangaRanker:
                 "relations { edges { relationType node { id title { english romaji } } } } "
             "} } } } }"
         )
-
-    def build_group_html(media_group, include_images):
-        # media_group is a list of media item tuples.
-        html = "<div class='media-group-container'>"
-        for item in media_group:
-            html += "<div class='media-group-item'>"
-            if include_images and item[2]:
-                html += f"<img src='{item[2]}' alt='Cover for {item[1]}' class='group-image'>"
-            html += f"<div class='group-title'>{item[1]}</div>"
-            html += "</div>"
-        html += "</div>"
-        return html
     
     def get_selected_statuses(self, media_type):
         statuses = []
