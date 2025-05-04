@@ -412,16 +412,22 @@ from pyodide.ffi import create_proxy
 ANILIST_API_URL = "https://graphql.anilist.co/"
 
 def build_group_html(media_group, include_images):
-        # media_group is a list of media item tuples.
-        html = "<div class='media-group-container'>"
-        for item in media_group:
-            html += "<div class='media-group-item'>"
-            if include_images and item[2]:
-                html += f"<img src='{item[2]}' alt='Cover for {item[1]}' class='group-image'>"
-            html += f"<div class='group-title'>{item[1]}</div>"
-            html += "</div>"
+    """
+    Builds HTML for a group of media items.
+    Each item is expected to be a tuple: (id, title, cover, score, season, seasonYear, relations)
+    """
+    html = "<div class='media-group-container'>"
+    for item in media_group:
+        if not isinstance(item, (list, tuple)) or len(item) < 2:
+            console.log("Warning: encountered an item that is not a valid media tuple:", item)
+            continue
+        html += "<div class='media-group-item'>"
+        if include_images and len(item) > 2 and item[2]:
+            html += f"<img src='{item[2]}' alt='Cover for {item[1]}' class='group-image'>"
+        html += f"<div class='group-title'>{item[1]}</div>"
         html += "</div>"
-        return html
+    html += "</div>"
+    return html
 
 def group_related_items(sorted_list):
     """
@@ -631,9 +637,16 @@ class AniMangaRanker:
 
     def update_comparison_gui(self, mid: int = None) -> None:
         try:
+            # Check whether there are any items to compare.
             if self.current_index >= len(self.unsorted_list):
                 return
+    
             new_item = self.unsorted_list[self.current_index]
+            if not isinstance(new_item, (list, tuple)):
+                console.log("Warning: new_item is not subscriptable:", new_item)
+                return
+    
+            # Handle the case when we are starting the ranking.
             if not self.sorted_list:
                 self.sorted_list.append(new_item)
                 self.current_index += 1
@@ -647,21 +660,26 @@ class AniMangaRanker:
             mid = self.calculate_mid()
             if mid < 0 or mid >= len(self.sorted_list):
                 mid = 0
-            candidate = self.sorted_list[mid]
     
+            candidate = self.sorted_list[mid]
+            if not isinstance(candidate, (list, tuple)):
+                console.log("Warning: candidate is not subscriptable:", candidate)
+                return
+    
+            # Update the instruction label using the title (assumed to be in the second element, index 1).
             self.set_text("instructionLabel", new_item[1] + " vs " + candidate[1])
+    
             btn1 = document.getElementById("compButton1")
             btn2 = document.getElementById("compButton2")
             include_images = self.is_checked("includeImagesCheckbox")
     
-            # If grouping is enabled, treat items as groups
             if self.is_checked("groupSeriesCheckbox"):
                 new_item_group = new_item if isinstance(new_item, list) else [new_item]
                 candidate_group = candidate if isinstance(candidate, list) else [candidate]
                 btn1.innerHTML = build_group_html(new_item_group, include_images)
                 btn2.innerHTML = build_group_html(candidate_group, include_images)
             else:
-                # Otherwise, display single items
+                # Display single items (with image support if specified).
                 if include_images and new_item[2] and candidate[2]:
                     btn1.innerHTML = (
                         f'<div class="title">{new_item[1]}</div>'
@@ -680,6 +698,7 @@ class AniMangaRanker:
                     btn2.classList.add("no-image")
                     btn1.innerText = new_item[1]
                     btn2.innerText = candidate[1]
+    
             self.update_progress()
             self.update_debug_info()
         except Exception as e:
