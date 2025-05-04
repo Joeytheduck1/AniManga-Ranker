@@ -411,6 +411,33 @@ from pyodide.ffi import create_proxy
 # Use the absolute URL with a trailing slash so it is not misinterpreted as relative
 ANILIST_API_URL = "https://graphql.anilist.co/"
 
+from pyodide.ffi import to_py  # Converts JS objects or proxies to Python objects
+from js import console
+
+def get_media_title(item, group_mode=False):
+    """
+    Returns the title from a media item or, in group mode, from a group of items.
+    If item is a JS Proxy or not a native Python list, it attempts to convert it.
+    Assumes a media tuple has the title at index 1.
+    """
+    try:
+        # Convert item if it is not already a native Python list/tuple.
+        if not isinstance(item, (list, tuple)):
+            item = to_py(item)
+        if group_mode:
+            if len(item) == 0:
+                return "N/A"
+            rep = item[0]
+            # Again, convert if needed.
+            if not isinstance(rep, (list, tuple)):
+                rep = to_py(rep)
+            return rep[1] if len(rep) > 1 else "N/A"
+        else:
+            return item[1] if len(item) > 1 else "N/A"
+    except Exception as e:
+        console.log("Error in get_media_title:", e)
+        return "N/A"
+
 def build_group_html(media_group, include_images):
     """
     Builds HTML for a group of media items.
@@ -504,35 +531,6 @@ class AniMangaRanker:
                 "relations { edges { relationType node { id title { english romaji } } } } "
             "} } } } }"
         )
-    
-    def get_media_title(item, group_mode=False):
-        """
-        Returns the title from a media item or a group.
-        In group mode, expects item to be a list/tuple of media tuples;
-        returns the title from the first media tuple.
-        Otherwise, expects item to be a single media tuple.
-        """
-        try:
-            if group_mode:
-                # If the item is a proxy, convert it.
-                if not isinstance(item, (list, tuple)):
-                    item = list(item)
-                if len(item) == 0:
-                    return "N/A"
-                rep = item[0]
-                # rep might also be a proxy
-                if not isinstance(rep, (list, tuple)):
-                    rep = list(rep)
-                return rep[1] if len(rep) > 1 else "N/A"
-            else:
-                # Single media tuple – convert if needed.
-                if not isinstance(item, (list, tuple)):
-                    item = list(item)
-                return item[1] if len(item) > 1 else "N/A"
-        except Exception as e:
-            console.log("Error in get_media_title:", e)
-            return "N/A"
-
     
     def get_selected_statuses(self, media_type):
         statuses = []
@@ -670,15 +668,13 @@ class AniMangaRanker:
                 return
     
             new_item = self.unsorted_list[self.current_index]
-            # In group mode, ensure we're working with a proper list
             if self.is_checked("groupSeriesCheckbox"):
                 if not isinstance(new_item, (list, tuple)):
                     try:
-                        new_item = list(new_item)
+                        new_item = to_py(new_item)
                     except Exception as conv_e:
                         console.log("Error converting new_item group:", conv_e)
                         return
-                # Warn if group seems to be empty or not structured as expected.
                 if len(new_item) == 0 or not isinstance(new_item[0], (list, tuple)):
                     console.log("Warning: new_item group is not in the expected format:", new_item)
                     return
@@ -701,8 +697,8 @@ class AniMangaRanker:
                 console.log("Warning: candidate is not subscriptable:", candidate)
                 return
     
-            # For display, extract titles using get_media_title:
             group_mode = self.is_checked("groupSeriesCheckbox")
+            # Use the helper to extract titles.
             self.set_text("instructionLabel", get_media_title(new_item, group_mode) + " vs " + get_media_title(candidate, group_mode))
     
             btn1 = document.getElementById("compButton1")
@@ -1074,18 +1070,16 @@ class AniMangaRanker:
     def update_debug_info(self):
         try:
             debugInfo = document.getElementById("debugInfo")
-            # Check to ensure sorted_list is not empty.
             if not self.sorted_list or len(self.sorted_list) == 0:
                 debugInfo.innerText = "Sorted list is empty."
                 return
     
-            # Convert indices to safe values if needed
+            # Ensure indices are in range.
             low_index = self.low_index if self.low_index < len(self.sorted_list) else 0
             high_index = self.high_index if self.high_index < len(self.sorted_list) else len(self.sorted_list) - 1
-            initial_mid = self.initial_estimated_midpoint if self.initial_estimated_midpoint is not None and self.initial_estimated_midpoint < len(self.sorted_list) else 0
+            initial_mid = self.initial_estimated_midpoint if (self.initial_estimated_midpoint is not None and self.initial_estimated_midpoint < len(self.sorted_list)) else 0
             current_mid = self.calculate_mid() if self.calculate_mid() < len(self.sorted_list) else 0
     
-            # Determine whether group mode is active
             group_mode = self.is_checked("groupSeriesCheckbox")
     
             low_item = get_media_title(self.sorted_list[low_index], group_mode)
@@ -1093,14 +1087,16 @@ class AniMangaRanker:
             initial_item = get_media_title(self.sorted_list[initial_mid], group_mode)
             current_item = get_media_title(self.sorted_list[current_mid], group_mode)
     
-            info = (f"Low bound: {low_item} (index {low_index})\n"
-                    f"High bound: {high_item} (index {high_index})\n"
-                    f"Initial midpoint: {initial_item} (index {initial_mid})\n"
-                    f"Current midpoint: {current_item} (index {current_mid})\n")
+            info = (
+                f"Low bound: {low_item} (index {low_index})\n"
+                f"High bound: {high_item} (index {high_index})\n"
+                f"Initial midpoint: {initial_item} (index {initial_mid})\n"
+                f"Current midpoint: {current_item} (index {current_mid})\n"
+            )
             debugInfo.innerText = info
         except Exception as e:
             console.log("Error in update_debug_info: " + str(e))
-
+    
     def save_progress(self):
         """
         Saves the complete state of the application to localStorage.
