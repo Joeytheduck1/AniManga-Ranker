@@ -411,26 +411,32 @@ from pyodide.ffi import create_proxy
 # Use the absolute URL with a trailing slash so it is not misinterpreted as relative
 ANILIST_API_URL = "https://graphql.anilist.co/"
 
-from pyodide.ffi import to_py  # Converts JS objects or proxies to Python objects
 from js import console
 
 def get_media_title(item, group_mode=False):
     """
-    Returns the title from a media item or, in group mode, from a group of items.
-    If item is a JS Proxy or not a native Python list, it attempts to convert it.
+    Returns the title from a media item or, in group mode,
+    from a group of items (by using the first media tuple).
     Assumes a media tuple has the title at index 1.
+    If item is a JS proxy, we attempt to convert it using its .to_py() method.
     """
     try:
-        # Convert item if it is not already a native Python list/tuple.
+        # Convert item to a Python list or tuple if it's a proxy.
         if not isinstance(item, (list, tuple)):
-            item = to_py(item)
+            if hasattr(item, "to_py") and callable(item.to_py):
+                item = item.to_py()
+            else:
+                # Fallback: try casting it to a list
+                item = list(item)
         if group_mode:
             if len(item) == 0:
                 return "N/A"
             rep = item[0]
-            # Again, convert if needed.
             if not isinstance(rep, (list, tuple)):
-                rep = to_py(rep)
+                if hasattr(rep, "to_py") and callable(rep.to_py):
+                    rep = rep.to_py()
+                else:
+                    rep = list(rep)
             return rep[1] if len(rep) > 1 else "N/A"
         else:
             return item[1] if len(item) > 1 else "N/A"
@@ -671,7 +677,11 @@ class AniMangaRanker:
             if self.is_checked("groupSeriesCheckbox"):
                 if not isinstance(new_item, (list, tuple)):
                     try:
-                        new_item = to_py(new_item)
+                        # If new_item is a JS proxy, convert it.
+                        if hasattr(new_item, "to_py") and callable(new_item.to_py):
+                            new_item = new_item.to_py()
+                        else:
+                            new_item = list(new_item)
                     except Exception as conv_e:
                         console.log("Error converting new_item group:", conv_e)
                         return
@@ -698,8 +708,9 @@ class AniMangaRanker:
                 return
     
             group_mode = self.is_checked("groupSeriesCheckbox")
-            # Use the helper to extract titles.
-            self.set_text("instructionLabel", get_media_title(new_item, group_mode) + " vs " + get_media_title(candidate, group_mode))
+            # Use get_media_title to extract titles.
+            self.set_text("instructionLabel", get_media_title(new_item, group_mode) +
+                          " vs " + get_media_title(candidate, group_mode))
     
             btn1 = document.getElementById("compButton1")
             btn2 = document.getElementById("compButton2")
@@ -1074,10 +1085,12 @@ class AniMangaRanker:
                 debugInfo.innerText = "Sorted list is empty."
                 return
     
-            # Ensure indices are in range.
+            # Ensure indices are within range.
             low_index = self.low_index if self.low_index < len(self.sorted_list) else 0
             high_index = self.high_index if self.high_index < len(self.sorted_list) else len(self.sorted_list) - 1
-            initial_mid = self.initial_estimated_midpoint if (self.initial_estimated_midpoint is not None and self.initial_estimated_midpoint < len(self.sorted_list)) else 0
+            initial_mid = (self.initial_estimated_midpoint 
+                           if (self.initial_estimated_midpoint is not None and self.initial_estimated_midpoint < len(self.sorted_list))
+                           else 0)
             current_mid = self.calculate_mid() if self.calculate_mid() < len(self.sorted_list) else 0
     
             group_mode = self.is_checked("groupSeriesCheckbox")
