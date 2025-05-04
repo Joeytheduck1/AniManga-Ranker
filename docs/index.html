@@ -414,45 +414,53 @@ ANILIST_API_URL = "https://graphql.anilist.co/"
 import json
 from js import console
 
+def to_native(obj):
+    """
+    Attempts to convert a JS object (possibly a Pyodide Proxy) to a native Python object.
+    First, tries to use .to_py() if available. If that fails (or isn’t available),
+    uses a JSON round-trip (which works for JSON-serializable objects).
+    """
+    try:
+        if hasattr(obj, "to_py") and callable(obj.to_py):
+            return obj.to_py()
+    except Exception as e:
+        console.log("to_native: obj.to_py() failed with", e)
+    try:
+        return json.loads(json.dumps(obj))
+    except Exception as e:
+        console.log("to_native: JSON conversion failed with", e)
+        return obj
+      
 def get_media_title(item, group_mode=False):
     """
-    Returns the title from a media item, or—in group mode—the title from
-    the first media tuple in the group. It robustly attempts to convert JS
-    Proxy objects into pure Python objects.
-    
+    Returns the title from a media item or, in group mode,
+    from the first media tuple of a group.
     Assumes a media tuple has its title in index 1.
     """
     try:
-        # --- First, attempt to convert item into a native Python list ---
-        if not isinstance(item, (list, tuple)):
-            if hasattr(item, "to_py") and callable(item.to_py):
-                try:
-                    item = item.to_py()
-                except Exception as conv_err:
-                    console.log("item.to_py() failed:", conv_err)
-                    # Fallback conversion via JSON
-                    item = json.loads(json.dumps(item))
-            else:
-                item = list(item)
-
-        # --- Now process item in group mode or single item mode ---
-        if group_mode:
-            if len(item) == 0:
+        # Convert the entire item to a native Python object.
+        native_item = to_native(item)
+        if not isinstance(native_item, (list, tuple)):
+            try:
+                native_item = list(native_item)
+            except Exception as conv_e:
+                console.log("Error converting item to list:", conv_e)
                 return "N/A"
-            rep = item[0]
+                
+        if group_mode:
+            if len(native_item) == 0:
+                return "N/A"
+            rep = native_item[0]
+            rep = to_native(rep)
             if not isinstance(rep, (list, tuple)):
-                if hasattr(rep, "to_py") and callable(rep.to_py):
-                    try:
-                        rep = rep.to_py()
-                    except Exception as conv_err:
-                        console.log("rep.to_py() failed:", conv_err)
-                        rep = json.loads(json.dumps(rep))
-                else:
+                try:
                     rep = list(rep)
+                except Exception as conv_e:
+                    console.log("Error converting representative to list:", conv_e)
+                    return "N/A"
             return rep[1] if len(rep) > 1 else "N/A"
         else:
-            return item[1] if len(item) > 1 else "N/A"
-    
+            return native_item[1] if len(native_item) > 1 else "N/A"
     except Exception as e:
         console.log("Error in get_media_title:", e, item)
         return "N/A"
