@@ -417,25 +417,42 @@ from js import console
 def to_native(obj):
     """
     Attempts to convert a JS object (possibly a Pyodide Proxy) to a native Python object.
-    First, tries to use .to_py() if available. If that fails (or isn’t available),
-    uses a JSON round-trip (which works for JSON-serializable objects).
+    First, it checks if the object has a numeric 'length' property (as with JS arrays). If so,
+    it manually builds a list from the object. Otherwise, it tries to use .to_py(), and finally
+    falls back to a JSON round-trip.
     """
     try:
+        # If the object has a constant numeric 'length', assume it is array-like.
+        try:
+            length = int(obj.length)
+            native_list = []
+            for i in range(length):
+                native_list.append(obj[i])
+            return native_list
+        except Exception:
+            # If no length or conversion fails, move on.
+            pass
+        
+        # Next, try the built-in .to_py() method if available.
         if hasattr(obj, "to_py") and callable(obj.to_py):
             return obj.to_py()
     except Exception as e:
         console.log("to_native: obj.to_py() failed with", e)
+    
     try:
+        # Fall back to a JSON round-trip conversion. (Works only if the object is JSON serializable.)
         return json.loads(json.dumps(obj))
     except Exception as e:
         console.log("to_native: JSON conversion failed with", e)
-        return obj
+    
+    # As a last resort, return the object as-is.
+    return obj
       
 def get_media_title(item, group_mode=False):
     """
-    Returns the title from a media item or, in group mode,
-    from the first media tuple of a group.
-    Assumes a media tuple has its title in index 1.
+    Returns the title from a media item (assumed to be a tuple or list), or—if in group mode—
+    returns the title from the first media tuple in the group (index 1). This function uses
+    to_native() to ensure that the passed object is a proper Python list.
     """
     try:
         # Convert the entire item to a native Python object.
@@ -446,7 +463,6 @@ def get_media_title(item, group_mode=False):
             except Exception as conv_e:
                 console.log("Error converting item to list:", conv_e)
                 return "N/A"
-                
         if group_mode:
             if len(native_item) == 0:
                 return "N/A"
@@ -458,6 +474,7 @@ def get_media_title(item, group_mode=False):
                 except Exception as conv_e:
                     console.log("Error converting representative to list:", conv_e)
                     return "N/A"
+            # Assumes the title is at index 1.
             return rep[1] if len(rep) > 1 else "N/A"
         else:
             return native_item[1] if len(native_item) > 1 else "N/A"
