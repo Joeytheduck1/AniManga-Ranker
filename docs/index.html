@@ -505,6 +505,35 @@ class AniMangaRanker:
             "} } } } }"
         )
     
+    def get_media_title(item, group_mode=False):
+        """
+        Returns the title from a media item or a group.
+        In group mode, expects item to be a list/tuple of media tuples;
+        returns the title from the first media tuple.
+        Otherwise, expects item to be a single media tuple.
+        """
+        try:
+            if group_mode:
+                # If the item is a proxy, convert it.
+                if not isinstance(item, (list, tuple)):
+                    item = list(item)
+                if len(item) == 0:
+                    return "N/A"
+                rep = item[0]
+                # rep might also be a proxy
+                if not isinstance(rep, (list, tuple)):
+                    rep = list(rep)
+                return rep[1] if len(rep) > 1 else "N/A"
+            else:
+                # Single media tuple – convert if needed.
+                if not isinstance(item, (list, tuple)):
+                    item = list(item)
+                return item[1] if len(item) > 1 else "N/A"
+        except Exception as e:
+            console.log("Error in get_media_title:", e)
+            return "N/A"
+
+    
     def get_selected_statuses(self, media_type):
         statuses = []
         if self.is_checked("completedCheckbox"):
@@ -637,25 +666,23 @@ class AniMangaRanker:
 
     def update_comparison_gui(self, mid: int = None) -> None:
         try:
-            # No more items to compare.
             if self.current_index >= len(self.unsorted_list):
                 return
     
             new_item = self.unsorted_list[self.current_index]
-            # In grouped mode, new_item should be a list (a group of media items),
-            # and in non-grouped mode it will be a single tuple.
+            # In group mode, ensure we're working with a proper list
             if self.is_checked("groupSeriesCheckbox"):
-                if not (isinstance(new_item, list) and len(new_item) > 0):
+                if not isinstance(new_item, (list, tuple)):
+                    try:
+                        new_item = list(new_item)
+                    except Exception as conv_e:
+                        console.log("Error converting new_item group:", conv_e)
+                        return
+                # Warn if group seems to be empty or not structured as expected.
+                if len(new_item) == 0 or not isinstance(new_item[0], (list, tuple)):
                     console.log("Warning: new_item group is not in the expected format:", new_item)
                     return
-                # Get the first item in the group as representative for instruction text.
-                rep_new_item = new_item[0]
-            else:
-                if not isinstance(new_item, (list, tuple)):
-                    console.log("Warning: new_item is not subscriptable:", new_item)
-                    return
     
-            # Handling empty sorted list (first insertion)
             if not self.sorted_list:
                 self.sorted_list.append(new_item)
                 self.current_index += 1
@@ -670,25 +697,23 @@ class AniMangaRanker:
             if mid < 0 or mid >= len(self.sorted_list):
                 mid = 0
             candidate = self.sorted_list[mid]
-            if self.is_checked("groupSeriesCheckbox"):
-                if not (isinstance(candidate, list) and len(candidate) > 0):
-                    console.log("Warning: candidate group is not in the expected format:", candidate)
-                    return
-                rep_candidate = candidate[0]
-                # Use the representative items' titles for the instruction label.
-                self.set_text("instructionLabel", rep_new_item[1] + " vs " + rep_candidate[1])
-            else:
-                self.set_text("instructionLabel", new_item[1] + " vs " + candidate[1])
+            if not isinstance(candidate, (list, tuple)):
+                console.log("Warning: candidate is not subscriptable:", candidate)
+                return
+    
+            # For display, extract titles using get_media_title:
+            group_mode = self.is_checked("groupSeriesCheckbox")
+            self.set_text("instructionLabel", get_media_title(new_item, group_mode) + " vs " + get_media_title(candidate, group_mode))
     
             btn1 = document.getElementById("compButton1")
             btn2 = document.getElementById("compButton2")
             include_images = self.is_checked("includeImagesCheckbox")
-            if self.is_checked("groupSeriesCheckbox"):
-                # When grouped, new_item and candidate are both lists (groups).
-                btn1.innerHTML = build_group_html(new_item, include_images)
-                btn2.innerHTML = build_group_html(candidate, include_images)
+            if group_mode:
+                new_item_group = new_item if isinstance(new_item, list) else [new_item]
+                candidate_group = candidate if isinstance(candidate, list) else [candidate]
+                btn1.innerHTML = build_group_html(new_item_group, include_images)
+                btn2.innerHTML = build_group_html(candidate_group, include_images)
             else:
-                # For single media items
                 if include_images and new_item[2] and candidate[2]:
                     btn1.innerHTML = (
                         f'<div class="title">{new_item[1]}</div>'
@@ -1049,19 +1074,33 @@ class AniMangaRanker:
     def update_debug_info(self):
         try:
             debugInfo = document.getElementById("debugInfo")
-            low_item = self.sorted_list[self.low_index][1] if self.sorted_list and self.low_index < len(self.sorted_list) else "N/A"
-            high_item = self.sorted_list[self.high_index][1] if self.sorted_list and self.high_index < len(self.sorted_list) else "N/A"
-            initial_item = self.sorted_list[self.initial_estimated_midpoint][1] if self.initial_estimated_midpoint is not None and self.sorted_list and self.initial_estimated_midpoint < len(self.sorted_list) else "N/A"
-            current_mid = self.calculate_mid()
-            current_item = self.sorted_list[current_mid][1] if self.sorted_list and current_mid < len(self.sorted_list) else "N/A"
-            info = (f"Low bound: {low_item} (index {self.low_index})\n"
-                    f"High bound: {high_item} (index {self.high_index})\n"
-                    f"Initial midpoint: {initial_item} (index {self.initial_estimated_midpoint})\n"
-                    f"Current midpoint: {current_item} (index {current_mid})")
+            # Check to ensure sorted_list is not empty.
+            if not self.sorted_list or len(self.sorted_list) == 0:
+                debugInfo.innerText = "Sorted list is empty."
+                return
+    
+            # Convert indices to safe values if needed
+            low_index = self.low_index if self.low_index < len(self.sorted_list) else 0
+            high_index = self.high_index if self.high_index < len(self.sorted_list) else len(self.sorted_list) - 1
+            initial_mid = self.initial_estimated_midpoint if self.initial_estimated_midpoint is not None and self.initial_estimated_midpoint < len(self.sorted_list) else 0
+            current_mid = self.calculate_mid() if self.calculate_mid() < len(self.sorted_list) else 0
+    
+            # Determine whether group mode is active
+            group_mode = self.is_checked("groupSeriesCheckbox")
+    
+            low_item = get_media_title(self.sorted_list[low_index], group_mode)
+            high_item = get_media_title(self.sorted_list[high_index], group_mode)
+            initial_item = get_media_title(self.sorted_list[initial_mid], group_mode)
+            current_item = get_media_title(self.sorted_list[current_mid], group_mode)
+    
+            info = (f"Low bound: {low_item} (index {low_index})\n"
+                    f"High bound: {high_item} (index {high_index})\n"
+                    f"Initial midpoint: {initial_item} (index {initial_mid})\n"
+                    f"Current midpoint: {current_item} (index {current_mid})\n")
             debugInfo.innerText = info
         except Exception as e:
-            console.log("Error updating debug info: " + str(e))
-    
+            console.log("Error in update_debug_info: " + str(e))
+
     def save_progress(self):
         """
         Saves the complete state of the application to localStorage.
