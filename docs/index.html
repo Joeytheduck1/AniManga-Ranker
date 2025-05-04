@@ -447,7 +447,18 @@ class AniMangaRanker:
             "} } } } }"
         )
 
-
+    def build_group_html(media_group, include_images):
+        # media_group is a list of media item tuples.
+        html = "<div class='media-group-container'>"
+        for item in media_group:
+            html += "<div class='media-group-item'>"
+            if include_images and item[2]:
+                html += f"<img src='{item[2]}' alt='Cover for {item[1]}' class='group-image'>"
+            html += f"<div class='group-title'>{item[1]}</div>"
+            html += "</div>"
+        html += "</div>"
+        return html
+    
     def get_selected_statuses(self, media_type):
         statuses = []
         if self.is_checked("completedCheckbox"):
@@ -1112,18 +1123,6 @@ class AniMangaRanker:
                 console.log("Progress loaded.")
             except Exception as e:
                 console.log("Error loading progress: " + str(e))
-    
-    def build_group_html(media_group, include_images):
-        # media_group is a list of media item tuples.
-        html = "<div class='media-group-container'>"
-        for item in media_group:
-            html += "<div class='media-group-item'>"
-            if include_images and item[2]:
-                html += f"<img src='{item[2]}' alt='Cover for {item[1]}' class='group-image'>"
-            html += f"<div class='group-title'>{item[1]}</div>"
-            html += "</div>"
-        html += "</div>"
-        return html
 
 # Create the global instance of ranker
 ranker = AniMangaRanker()
