@@ -411,37 +411,50 @@ from pyodide.ffi import create_proxy
 # Use the absolute URL with a trailing slash so it is not misinterpreted as relative
 ANILIST_API_URL = "https://graphql.anilist.co/"
 
+import json
 from js import console
 
 def get_media_title(item, group_mode=False):
     """
-    Returns the title from a media item or, in group mode,
-    from a group of items (by using the first media tuple).
-    Assumes a media tuple has the title at index 1.
-    If item is a JS proxy, we attempt to convert it using its .to_py() method.
+    Returns the title from a media item, or—in group mode—the title from
+    the first media tuple in the group. It robustly attempts to convert JS
+    Proxy objects into pure Python objects.
+    
+    Assumes a media tuple has its title in index 1.
     """
     try:
-        # Convert item to a Python list or tuple if it's a proxy.
+        # --- First, attempt to convert item into a native Python list ---
         if not isinstance(item, (list, tuple)):
             if hasattr(item, "to_py") and callable(item.to_py):
-                item = item.to_py()
+                try:
+                    item = item.to_py()
+                except Exception as conv_err:
+                    console.log("item.to_py() failed:", conv_err)
+                    # Fallback conversion via JSON
+                    item = json.loads(json.dumps(item))
             else:
-                # Fallback: try casting it to a list
                 item = list(item)
+
+        # --- Now process item in group mode or single item mode ---
         if group_mode:
             if len(item) == 0:
                 return "N/A"
             rep = item[0]
             if not isinstance(rep, (list, tuple)):
                 if hasattr(rep, "to_py") and callable(rep.to_py):
-                    rep = rep.to_py()
+                    try:
+                        rep = rep.to_py()
+                    except Exception as conv_err:
+                        console.log("rep.to_py() failed:", conv_err)
+                        rep = json.loads(json.dumps(rep))
                 else:
                     rep = list(rep)
             return rep[1] if len(rep) > 1 else "N/A"
         else:
             return item[1] if len(item) > 1 else "N/A"
+    
     except Exception as e:
-        console.log("Error in get_media_title:", e)
+        console.log("Error in get_media_title:", e, item)
         return "N/A"
 
 def build_group_html(media_group, include_images):
