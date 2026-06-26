@@ -837,6 +837,8 @@ class AniMangaRanker:
             modal.style.display = "none"
             self.set_text("progressLabel", "Edited sorted list saved.")
             self.save_progress()  # Save the new sorted order.
+            self.update_debug_info()
+            self.update_comparison_gui()
         except Exception as e:
             console.log("Error in save_edited_list: " + str(e))
 
